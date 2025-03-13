@@ -1,0 +1,7 @@
+.csv # to prevent large datafile upload
+__pycache__
+.streamlit/
+'*.pyc'
+
+
+
