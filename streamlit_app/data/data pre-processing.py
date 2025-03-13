@@ -34,7 +34,7 @@ df_duplicates = df_cleaned[df_cleaned.duplicated(subset = df_cleaned.columns.dif
 print(df_duplicates.shape)  # all differences found in popularity and/or genre
 
 df_cleaned = df_cleaned.groupby('track_id', as_index=False).agg({                               # group by track_id
-    'popularity': 'mean',                                                                       # calculate mean of popularity
+    'popularity': 'max',                                                                       # calculate mean of popularity
     'track_genre': ', '.join,                                                                   # join genres
     **{col: 'first' for col in df_cleaned.columns if col not in ["popularity", "track_genre"]}})    # for all other columns get first value
 
