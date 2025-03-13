@@ -11,7 +11,7 @@ import faiss
 df = pd.read_csv("spotify_tracks.csv") # if using run
 
 # Sample 1000 rows to test code
-df = df.sample(50000, random_state=42).reset_index(drop=True)
+df = df.sample(10000, random_state=42).reset_index(drop=True)
 
 # Remove first column (duplicate index)
 df = df.drop(df.columns[0], axis=1)
@@ -40,11 +40,11 @@ genre_matrix = tfidf_vectorizer.fit_transform(df["track_genre"])
 artist_matrix = tfidf_vectorizer.fit_transform(df["artists"])
 
 # Compute Weighted Similarity
-audio_weight = 0.1
-genre_weight = 0.4
-artist_weight = 0.5
+audio_weight = 0.2
+genre_weight = 0.1
+artist_weight = 0.7
 
-if audio_weight + genre_weight + artist_weight != 1:
+if not np.isclose(audio_weight + genre_weight + artist_weight, 1.0):
     raise ValueError("Weights must sum up to 1.")
 
 # Scale genre and artist matrices to match feature importance
@@ -73,7 +73,13 @@ def recommend_faiss(song_name, df, index, top_n=5):
     # Search for similar songs
     _, indices = index.search(song_vector, top_n + 1)  # +1 to ignore itself
 
-    return df.iloc[indices[0][1:]]["track_name"].tolist()
+    # Retrieve song names and artists for the recommended indices
+    recommended_tracks = df.iloc[indices[0][1:]][["track_name", "artists"]]
+
+    # Format the output as a list of tuples (track_name, artist)
+    recommendations = [(row["track_name"], row["artists"]) for _, row in recommended_tracks.iterrows()]
+
+    return recommendations
 
 # Example usage
 song_name = "Daughters" # John Mayer
