@@ -2,7 +2,7 @@
 import pandas as pd
 
 # save data
-df = pd.read_csv("dataset.csv")                 # save dataset
+df = pd.read_csv("streamlit_app/data/spotify_tracks.csv")   # save dataset
 print(df.shape)                                 # shape: 114000, 21
 
 # column names
@@ -43,4 +43,5 @@ df_cleaned = df_cleaned[["track_id", "track_name", "album_name", "artists", "dur
                          "explicit", "danceability", "energy", "key", "loudness", "mode", "speechiness", "acousticness",
                          "instrumentalness", "liveness", "valence", "tempo", "time_signature"]]
 
-
+# write file
+df_cleaned.to_csv("streamlit_app/data/spotify_tracks_clean.csv", index = False)
