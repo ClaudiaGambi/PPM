@@ -19,45 +19,6 @@ df = df.dropna()
 # drop rows with duplicated in track_id column
 df = df.drop_duplicates(subset=['track_id'])
 
-# group by track_genre and add column 'popularity_genre' by calculating popularity of each track by genre and rescale between 0-100
-
-# Define a function to rescale and round the popularity values for each genre
-def rescale_and_round_popularity(series):
-    scaler = MinMaxScaler(feature_range=(0, 100))
-    # Reshape the series to fit the scaler
-    scaled_values = scaler.fit_transform(series.values.reshape(-1, 1))
-    # Flatten the scaled values and round to zero decimals
-    rounded_values = scaled_values.flatten().round(0).astype(int)
-    return rounded_values
-
-# Apply the rescaling and rounding function to each group
-df['popularity_genre'] = df.groupby('track_genre')['popularity'].transform(rescale_and_round_popularity)
-
-
-# Define parameters for the log-normal distribution
-mu = 8  # Mean of the underlying normal distribution
-sigma = 0.1  # Standard deviation of the underlying normal distribution
-
-# Generate a base log-normal distribution
-base_plays = np.random.lognormal(mean=mu, sigma=sigma, size=len(df))
-
-# Apply a non-linear transformation to the popularity_genre to make the decrease faster
-# For example, use a power transformation
-power_factor = 2  # You can adjust this factor to control the steepness of the curve
-popularity_scale = (df['popularity_genre'] / 100) ** power_factor
-
-# Calculate tracks_played by scaling the base log-normal distribution
-df['tracks_played'] = base_plays * popularity_scale
-
-# Round the values to the nearest integer
-df['tracks_played'] = df['tracks_played'].round(0).astype(int)
-
-# Ensure that the minimum number of plays is at least 1
-df['tracks_played'] = df['tracks_played'].clip(lower=1)
-
-# Group by 'track_genre' and sort each group by 'popularity_genre'
-df = df.groupby('track_genre', group_keys=False).apply(lambda x: x.sort_values('popularity_genre', ascending=False)).reset_index(drop=True)
-
 # Sample 1000 rows to test code
 df = df.sample(10000, random_state=42).reset_index(drop=True)
 
