@@ -102,9 +102,9 @@ matplotlib.use('Qt5Agg')
 np.random.seed(42)
 
 # Load the Spotify tracks dataset
-tracks = pd.read_csv("spotify_tracks.csv")
+tracks = pd.read_csv("spotify_tracks_clean.csv")
 
-tracks = tracks.drop(columns=['Unnamed: 0']) #remove columm 'unnamed: 0'
+# tracks = tracks.drop(columns=['Unnamed: 0']) #remove columm 'unnamed: 0'
 tracks = tracks.drop_duplicates(subset='track_id') # drop duplicate rows based on track_id
 
 # Define parameters
@@ -134,13 +134,13 @@ tracks['popularity_genre'] = tracks.groupby('track_genre')['popularity'].transfo
 interactions = []
 
 # Number of tracks per user follows a log-normal distribution
-num_tracks_per_user = np.random.lognormal(mean=3.0, sigma=0.5, size=num_users).astype(int)
+num_tracks_per_user = np.random.lognormal(mean=2.0, sigma=0.5, size=num_users).astype(int)
 
 # A global counter to ensure each interaction has a unique microsecond offset
 global_interaction_counter = 0
 
 # --- Function to replicate each row in a DataFrame based on track popularity ---
-def replicate_by_popularity(df, genre_scale=1000):
+def replicate_by_popularity(df, genre_scale=10):
     """
     For each row (track) in df, replicate the row based on its genre popularity.
     A higher 'popularity_genre' value (normalized popularity within the genre) results in more replicates.
@@ -183,7 +183,7 @@ for user_id, num_tracks in zip(users['user_id'], num_tracks_per_user):
 
     # Combine the selected tracks for the user and replicate based on genre popularity
     selected_tracks = pd.concat([selected_preferred_tracks, selected_other_tracks])
-    repeated_tracks = replicate_by_popularity(selected_tracks, genre_scale=1500)
+    repeated_tracks = replicate_by_popularity(selected_tracks, genre_scale=10)
 
     # Iterate over each row of repeated_tracks
     for idx, track in repeated_tracks.iterrows():
@@ -362,7 +362,7 @@ print(gender_distribution)
 preferred_genre_distribution = users['preferred_genre'].value_counts(normalize=True)
 print(preferred_genre_distribution)
 
-
+synthetic_data.to_csv('synthetic_user_data.csv', index=False)
 
 
 

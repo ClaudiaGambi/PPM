@@ -1,23 +1,26 @@
+
 import pandas as pd
 import numpy as np
-from sklearn.preprocessing import StandardScaler
-from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from sklearn.feature_extraction.text import TfidfVectorizer
 from scipy.sparse import csr_matrix, hstack
 import faiss
 
 # Load the dataset
-# df = pd.read_csv("streamlit_app/data/spotify_tracks.csv") # if manual executed
-df = pd.read_csv("spotify_tracks.csv") # if using run
-
-# Sample 1000 rows to test code
-df = df.sample(10000, random_state=42).reset_index(drop=True)
+# df = pd.read_csv("streamlit_app/data/spotify_tracks_clean.csv") # if line is manually executed
+df = pd.read_csv("spotify_tracks_clean.csv") # if using run
 
 # Remove first column (duplicate index)
-df = df.drop(df.columns[0], axis=1)
+# df = df.drop(df.columns[0], axis=1)
 
 # Drop rows with missing values
 df = df.dropna()
+
+# drop rows with duplicated in track_id column
+df = df.drop_duplicates(subset=['track_id'])
+
+# Sample 1000 rows to test code
+df = df.sample(10000, random_state=42).reset_index(drop=True)
 
 # Selecting numerical audio features for similarity calculation
 features = ["danceability", "energy", "valence", "tempo", "acousticness",
@@ -40,9 +43,9 @@ genre_matrix = tfidf_vectorizer.fit_transform(df["track_genre"])
 artist_matrix = tfidf_vectorizer.fit_transform(df["artists"])
 
 # Compute Weighted Similarity
-audio_weight = 0.2
-genre_weight = 0.1
-artist_weight = 0.7
+audio_weight = 0.6
+genre_weight = 0.3
+artist_weight = 0.1
 
 if not np.isclose(audio_weight + genre_weight + artist_weight, 1.0):
     raise ValueError("Weights must sum up to 1.")
@@ -82,6 +85,6 @@ def recommend_faiss(song_name, df, index, top_n=5):
     return recommendations
 
 # Example usage
-song_name = "Daughters" # John Mayer
+song_name = "Papaoutai" # Stromae
 recommended_songs = recommend_faiss(song_name, df, index)
 print(f"Songs similar to '{song_name}': {recommended_songs}")
