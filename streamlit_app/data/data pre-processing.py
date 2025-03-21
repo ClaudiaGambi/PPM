@@ -1,9 +1,14 @@
 
-### DATA
 import pandas as pd
+import numpy as np
+import spotipy
+from spotipy.oauth2 import SpotifyClientCredentials
+from PIL import Image, ImageDraw, ImageFont
+from sklearn.preprocessing import MinMaxScaler
 
+### data pre-processing
 # save data
-df = pd.read_csv("streamlit_app/data/spotify_tracks.csv")   # save dataset
+df = pd.read_csv("spotify_tracks.csv")          # save dataset
 print(df.shape)                                 # shape: 114000, 21
 
 # column names
@@ -34,9 +39,17 @@ df_duplicates_id = df_cleaned[df_cleaned.duplicated(subset = ["track_id"], keep 
 df_duplicates = df_cleaned[df_cleaned.duplicated(subset = df_cleaned.columns.difference(["popularity", "track_genre"]), keep = False)]
 print(df_duplicates.shape)  # all differences found in popularity and/or genre
 
-df_cleaned = df_cleaned.groupby('track_id', as_index=False).agg({                       # group by track_id
+df_cleaned = df_cleaned.groupby('track_id', as_index = False).agg({                     # group by track_id
     'popularity': 'max',                                                                # get max value for popularity
     **{col: 'first' for col in df_cleaned.columns if col not in ["popularity"]}})       # for all other columns get first value
+
+# find duplicates on track, album and artist names
+df_duplicates_track = df_cleaned[df_cleaned.duplicated(subset = ["track_name", "album_name", "artists"], keep = False)]
+
+df_cleaned = df_cleaned.groupby(["track_name", "album_name", "artists"], as_index = False).agg({
+    "duration_ms": "max",
+    'popularity': 'max',
+    **{col: 'first' for col in df_cleaned.columns if col not in ["duration_ms", "popularity"]}})
 
 # reorder dataframe
 df_cleaned = df_cleaned[["track_id", "track_name", "album_name", "artists", "duration_ms", "popularity", "track_genre",
@@ -44,13 +57,9 @@ df_cleaned = df_cleaned[["track_id", "track_name", "album_name", "artists", "dur
                          "instrumentalness", "liveness", "valence", "tempo", "time_signature"]]
 
 ### add cover image links to df
-import spotipy
-from spotipy.oauth2 import SpotifyClientCredentials
-
-
 # authorization
-# client_id = # removed by hku1
-# client_secret = # removed by hku1
+client_id = ""
+client_secret = ""
 auth_manager = SpotifyClientCredentials(client_id = client_id, client_secret = client_secret)
 sp = spotipy.Spotify(auth_manager = auth_manager)
 
@@ -81,7 +90,7 @@ for i, part in enumerate(chunks, 1):
         for track in track_info["tracks"]:
             track_id = track["id"]                  # save track id
             if track["album"]["images"]:            # save album cover
-                album_cover = track["album"]["images"][0]["url"]
+                album_cover = track["album"]["images"][1]["url"]
             else:
                 album_cover = "no image available"  # no album cover -> "no image available"
 
@@ -91,8 +100,32 @@ for i, part in enumerate(chunks, 1):
 album_covers = pd.DataFrame(album_covers)
 df_cleaned = df_cleaned.merge(album_covers, on = 'track_id', how = 'left')
 
-# group by track_genre and add column 'popularity_genre' by calculating popularity of each track by genre and rescale between 0-100
+# create back-up image
+width, height = 400, 400
+image = Image.new('RGB', (width, height), color='white')
+draw = ImageDraw.Draw(image)
 
+# music note
+font_color = (0, 0, 0)
+unicode_text = u"\u266C"
+unicode_font = ImageFont.truetype("Symbola.ttf", 100)
+
+# center music note
+bbox = draw.textbbox((0, 0), unicode_text, font=unicode_font)
+text_width = bbox[2] - bbox[0]
+text_height = bbox[3] - bbox[1]
+
+text_x = (width - text_width) // 2
+text_y = (height - text_height) // 2
+
+# save image
+draw.text((text_x, text_y), unicode_text, font=unicode_font, fill=font_color)
+image.save("album_cover_placeholder.png")
+
+# replace "no image available" with placeholder
+df_cleaned["album_cover"] = df_cleaned["album_cover"].replace("no image available", "album_cover_placeholder.png")
+
+### group by track_genre and add column 'popularity_genre' by calculating popularity of each track by genre and rescale between 0-100
 # Define a function to rescale and round the popularity values for each genre
 def rescale_and_round_popularity(series):
     scaler = MinMaxScaler(feature_range=(0, 100))
@@ -112,20 +145,21 @@ mu = 8  # Mean of the underlying normal distribution
 sigma = 0.1  # Standard deviation of the underlying normal distribution
 
 # Generate a base log-normal distribution
-base_plays = np.random.lognormal(mean=mu, sigma=sigma, size=len(df))
+base_plays = np.random.lognormal(mean=mu, sigma=sigma, size=len(df_cleaned))
 
 # Apply a non-linear transformation to the popularity_genre to make the decrease faster
 # For example, use a power transformation
 power_factor = 2  # You can adjust this factor to control the steepness of the curve
-popularity_scale = (df['popularity_genre'] / 100) ** power_factor
+popularity_scale = (df_cleaned['popularity_genre'] / 100) ** power_factor
 
 # Calculate tracks_played by scaling the base log-normal distribution
 df_cleaned['tracks_played'] = base_plays * popularity_scale
 
 # Round the values to the nearest integer
-df_cleaned['tracks_played'] = df['tracks_played'].round(0).astype(int)
+df_cleaned['tracks_played'] = df_cleaned['tracks_played'].round(0).astype(int)
 
 # Ensure that the minimum number of plays is at least 1
-df_cleaned['tracks_played'] = df['tracks_played'].clip(lower=1)
+df_cleaned['tracks_played'] = df_cleaned['tracks_played'].clip(lower=1)
 
-df_cleaned.to_csv("spotify_tracks_clean.csv", index=False)  # save cleaned dataset
+### save cleaned dataset
+df_cleaned.to_csv("spotify_tracks_clean.csv", index = False)
