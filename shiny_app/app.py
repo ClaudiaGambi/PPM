@@ -17,23 +17,33 @@ user_id = 1
 user_data = pd.read_csv(Path(__file__).parent / "data/synthetic_user_data.csv")
 
 # Tracks data
-tracks_data = pd.read_csv(Path(__file__).parent / "data/spotify_tracks_clean.csv")
+tracks_data = pd.read_csv(Path(__file__).parent / "data/spotify_tracks_clean_clusters.csv")
 tracks_data = tracks_data.sample(frac=0.1, random_state=42)
 
 # UI
 ui = ui.page_fluid(
+
     ui.h2("Spotify Track Analysis"),
 
-    # Dropdown to select an artist
+    # Dropdown to select a genre group
+    ui.input_selectize("genre_cluster_filter", "Select Genre group:",
+                    choices=["All"] + sorted(tracks_data["genre_cluster"].unique().tolist()), multiple=True),
+
+    # Dropdown to select a specific genre
     ui.input_selectize("genre_filter", "Select Genre:",
                     choices=["All"] + sorted(tracks_data["track_genre"].unique().tolist()), multiple=True),
+
+    # Dropdown to select a specific artist
+    ui.input_selectize("artist_filter", "Select Artist:",
+                    choices=["All"] + sorted(tracks_data["artists"].unique().tolist()), multiple=True),
+
     output_widget("plot"),
 
     ui.h2("Sliders for Energy and Valence"),
 
     # Add sliders below the plot
-    ui.input_slider("valence_filter", "Valence", min=0.0, max=1.0, value=0.5, step=0.01),
-    ui.input_slider("energy_filter", "Energy", min=0.0, max=1.0, value=0.5, step=0.01),
+    ui.input_slider("valence_filter", "Valence", min=0.0, max=1.0, value=0, step=0.01),
+    ui.input_slider("energy_filter", "Energy", min=0.0, max=1.0, value=0, step=0.01),
 )
 
 # SERVER
@@ -42,17 +52,39 @@ def server(input, output, session):
     # REACTIVE FUNCTION: Filters Data Based on dropdown menu Selection
     @reactive.Calc
     def filtered_data():
+
+        data = tracks_data.copy()
         selected_genre = input.genre_filter()
 
-        # Ensure it's always a list
-        if isinstance(selected_genre, str):
-            selected_genre = [selected_genre]
+        # Genre cluster filter
+        selected_clusters = input.genre_cluster_filter()
+        if isinstance(selected_clusters, str):
+            selected_clusters = [selected_clusters]
+        if selected_clusters and "All" not in selected_clusters:
+            data = data[data["genre_cluster"].isin(selected_clusters)]
 
-        # If no genre selected, show all data
-        if not selected_genre:
-            return tracks_data
+        # Genre filter
+        selected_genres = input.genre_filter()
+        if isinstance(selected_genres, str):
+            selected_genres = [selected_genres]
+        if selected_genres and "All" not in selected_genres:
+            data = data[data["track_genre"].isin(selected_genres)]
 
-        return tracks_data[tracks_data["track_genre"].isin(selected_genre)]
+        # Artist filter
+        selected_artists = input.artist_filter()
+        if isinstance(selected_artists, str):
+            selected_artists = [selected_artists]
+        if selected_artists and "All" not in selected_artists:
+            data = data[data["artists"].isin(selected_artists)]
+
+
+        # Valence and energy filters
+        valence = input.valence_filter()
+        energy = input.energy_filter()
+        data = data[(data["valence"] >= valence) & (data["energy"] >= energy)]
+
+        return data
+
 
     # REACTIVE FUNCTION: Get KNN recommendations based on slider values
     @reactive.Calc
