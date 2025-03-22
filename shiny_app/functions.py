@@ -48,8 +48,6 @@ def get_most_similar_tracks(df_track, df_users, user_id, top_n=10):
     # 1. Filter all interactions of the user
     user_data = df_users[df_users['user_id'] == user_id]
 
-    print(f'STEP 1 {user_data.head()}')
-
     # 2. Calculate the average value for the selected audio features
     audio_features = ['danceability', 'tempo', 'acousticness', 'instrumentalness', 'liveness', 'speechiness', 'loudness']
     scaler = MinMaxScaler()

@@ -8,7 +8,7 @@ from sklearn.neighbors import NearestNeighbors
 import numpy as np
 from shiny_app.functions import knn_module
 from shiny_app.functions import get_most_similar_tracks
-
+from shiny.ui import tags
 
 # Predifined user id as our current user
 user_id = 1
@@ -22,6 +22,35 @@ tracks_data = tracks_data.sample(frac=0.1, random_state=42)
 
 # UI
 ui = ui.page_fluid(
+
+    ui.tags.head(
+    ui.tags.style(
+        """
+        body {
+            background-color: #0b1c36;
+            color: #ffffff;
+        }
+
+        .form-control, .selectize-input {
+            background-color: #0b1c36 !important;
+            color: #ffffff !important;
+            border: 1px solid #333;
+        }
+
+        .selectize-dropdown-content {
+            background-color: #0b1c36 !important;
+            color: #ffffff !important;
+        }
+
+        .shiny-input-container {
+            margin-bottom: 1rem;
+        }
+
+        .widget-output, .plotly {
+            background-color: #1e1e1e !important;
+        }
+        """
+    )),
 
     ui.h2("Spotify Track Analysis"),
 
@@ -44,6 +73,13 @@ ui = ui.page_fluid(
     # Add sliders below the plot
     ui.input_slider("valence_filter", "Valence", min=0.0, max=1.0, value=0, step=0.01),
     ui.input_slider("energy_filter", "Energy", min=0.0, max=1.0, value=0, step=0.01),
+
+    ui.h2("Your recommendations:"),
+
+    # output list tracks
+    ui.output_ui("recommended_tracks_list"),
+
+
 )
 
 # SERVER
@@ -115,17 +151,43 @@ def server(input, output, session):
         ).update_traces(
             hovertemplate="<b>Song:</b> %{customdata[0]}<br><b>Artist:</b> %{customdata[1]}<br><b>Album:</b> %{customdata[2]}<extra></extra>"
         ).update_layout(
-            title={"text": "Valence vs. Energy"},
+            title={"text": "Valence vs. Energy", "font": {"color": "white"}},
             yaxis_title="Energy",
             xaxis_title="Valence",
+            plot_bgcolor="#0b1c36",
+            paper_bgcolor="#0b1c36",
+            font={"color": "white"},
+            xaxis=dict(color="white"),
+            yaxis=dict(color="white"),
         )
+
 
         return scatterplot
 
-    # PRINT RECOMMENDED TRACKS TO CONSOLE
-    @reactive.Effect
-    def _():
-        print(recommended_tracks())
+    @render.ui
+    def recommended_tracks_list():
+        tracks = recommended_tracks()
+
+        if tracks.empty:
+            return tags.p("No recommendations found.")
+
+        items = []
+        for _, row in tracks.iterrows():
+            item = tags.div(
+
+                # UPDATE TO ACTUAL ALBUM COVERS
+                tags.img(src="album_cover_placeholder.png", height="64px", width="64px", style="margin-right:10px;"),
+                tags.div(
+                    tags.b(row["track_name"]),
+                    tags.div(f"by {row['artists']}"),
+                    tags.div(f"Album: {row['album_name']}"),
+                    style="display: inline-block; vertical-align: top;"
+                ),
+                style="background-color: ##1e3352; padding: 10px; margin-bottom: 10px; border-radius: 5px; border: 1px solid #333;",
+            )
+            items.append(item)
+
+        return tags.div(*items)
 
 
 # run app
