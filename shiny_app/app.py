@@ -32,15 +32,15 @@ ui = ui.page_fluid(
         }
 
         .form-control, .selectize-input {
-            background-color: #0b1c36 !important;
+            background-color: #1e3352 !important;
             color: #ffffff !important;
-            border: 1px solid #333;
+            border: 0px solid #333;
         }
 
         .selectize-dropdown-content {
-            background-color: #0b1c36 !important;
+            background-color: ##1e3352 !important;
             color: #ffffff !important;
-        }
+
 
         .shiny-input-container {
             margin-bottom: 1rem;
@@ -183,7 +183,7 @@ def server(input, output, session):
                     tags.div(f"Album: {row['album_name']}"),
                     style="display: inline-block; vertical-align: top;"
                 ),
-                style="background-color: ##1e3352; padding: 10px; margin-bottom: 10px; border-radius: 5px; border: 1px solid #333;",
+                style="background-color: #1e3352; padding: 10px; margin-bottom: 10px; border-radius: 5px;",
             )
             items.append(item)
 
