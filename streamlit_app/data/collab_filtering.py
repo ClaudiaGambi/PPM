@@ -111,7 +111,7 @@ def build_faiss_index(df, feature_cols):
     scaler = StandardScaler()
     features = scaler.fit_transform(df[feature_cols].values.astype(np.float32))
 
-    index = faiss.IndexFlatL2(features.shape[1])  # L2 distance
+    index = faiss.IndexFlatL2(features.shape[1])  # L2 (Euclidean) distance
     index.add(features)
 
     return index, scaler
@@ -123,7 +123,7 @@ def recommend_similar_tracks(track_id, df, index, scaler, feature_cols, num_reco
         return []
 
     track_features = scaler.transform(track_features)
-    _, indices = index.search(track_features, num_recommendations + 1)  # +1 to exclude itself
+    _, indices = index.search(track_features, num_recommendations + 1)  # +1 to exclude itself in the nex line, as the top result is always the match to self
 
     recommended_tracks = df.iloc[indices[0][1:]][['track_id', 'track_name', 'artists']].drop_duplicates()
 
@@ -160,12 +160,13 @@ audio_features = [
 
 # Example Usage
 
-user_id = 1
+user_id = 5
 
 print(f'most similar user: {find_most_similar_user(user_id, user_data)}')
 print(f'recommended from sim. user: {recommend_from_similar_user(user_id, user_data, num_recommendations=5)}')
-# idx = build_faiss_index(user_data, audio_features)
-# print(f'recommended similar tracks: {recommend_similar_tracks("1", user_data, idx[0], idx[1], audio_features, num_recommendations=5)})
+# idx, sclr = build_faiss_index(user_data, audio_features)
+# rcmnd_sim_trcks = recommend_similar_tracks("1", user_data, idx[0], idx[1], audio_features, num_recommendations=5)
+# print(f'recommended similar tracks: {rcmnd_sim_trcks}')
 
 recommendations = hybrid_recommendation(user_id, user_data, audio_features, num_recommendations=5)
 print("Recommended Tracks:", recommendations)

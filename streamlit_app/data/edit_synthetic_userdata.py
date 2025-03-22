@@ -8,13 +8,13 @@ user_data = pd.read_csv("synthetic_user_data.csv")
 
 def edit_synthetic_userdata(user_data, destination_user_id, source_user_id, max_fraction=0.5):
     """
-    Copies a random fraction (between 0 and max_fraction) of full rows from `source_user_id`
+    Copies a random fraction (between 0 and max_fraction) of unique rows from `source_user_id`
     and assigns them to `destination_user_id` without removing existing rows of `destination_user_id`.
 
     The actual fraction is randomly chosen between 0 and max_fraction, ensuring variability.
     """
-    # Get all rows belonging to the source user
-    source_user_rows = user_data[user_data['user_id'] == source_user_id]
+    # Get all unique rows belonging to the source user
+    source_user_rows = user_data[user_data['user_id'] == source_user_id].drop_duplicates()
 
     if source_user_rows.empty:
         return user_data  # No data to copy
@@ -33,7 +33,7 @@ def edit_synthetic_userdata(user_data, destination_user_id, source_user_id, max_
     copied_rows = source_user_rows.sample(n=num_rows_to_copy, replace=False)
 
     # Change the user_id in the copied rows to the destination user
-    copied_rows = copied_rows.copy()  # Avoid modifying original DataFrame
+    copied_rows = copied_rows.copy()  # Avoid modifying the original DataFrame
     copied_rows['user_id'] = destination_user_id
 
     # Remove potential duplicates (if destination_user_id already has these exact rows)
@@ -47,8 +47,44 @@ def edit_synthetic_userdata(user_data, destination_user_id, source_user_id, max_
 
     return updated_user_data
 
-# Example usage
-user_data = edit_synthetic_userdata(user_data, destination_user_id=1, source_user_id=9, max_fraction=0.8)
+    # Example usage
+# user_data = edit_synthetic_userdata(user_data, destination_user_id=5, source_user_id=18, max_fraction=0.8)
+
+    # function duplicate all rows  from a source user to a destination user, arguments to the function
+    # are the user_data, the destination_user_id, the source_user_id, and a boolean flag to indicate
+    # whether to overwrite existing rows in the destination user. The function should return the updated
+    # user_data DataFrame.
+
+def duplicate_user_data(user_data, destination_user_id, source_user_id, overwrite=False):
+    """
+    Duplicates all rows from `source_user_id` and assigns them to `destination_user_id`.
+    If `overwrite` is True, existing rows of `destination_user_id` are removed.
+    """
+
+    # Get all rows belonging to the source user
+    source_user_rows = user_data[user_data['user_id'] == source_user_id]
+
+    if source_user_rows.empty:
+        return user_data  # No changes needed
+
+    # Change the user_id in the copied rows to the destination user
+    copied_rows = source_user_rows.copy()  # Avoid modifying the original DataFrame
+    copied_rows['user_id'] = destination_user_id
+
+    if overwrite:
+        # Remove existing rows of the destination user
+        user_data.drop(user_data[user_data['user_id'] == destination_user_id].index, inplace=True)
+
+    # Concatenate the copied rows to the user_data
+    user_data = pd.concat([user_data, copied_rows], ignore_index=True)
+
+    return user_data  # Ensure the caller knows to use the returned DataFrame
+
+    # Example usage
+
+user_data = duplicate_user_data(user_data, destination_user_id=5, source_user_id=18, overwrite=True)
+
+
 
 def print_identical_rows(user_data, source_user_id, destination_user_id):
     """
@@ -75,11 +111,11 @@ def print_identical_rows(user_data, source_user_id, destination_user_id):
         print(identical_rows)
 
 # Example usage
-print_identical_rows(user_data, source_user_id=14, destination_user_id=13)
+print_identical_rows(user_data, source_user_id=5, destination_user_id=18)
 
 
 # Save the modified data
-user_data.to_csv('synthetic_user_data_test.csv', index=False)
+# user_data.to_csv('synthetic_user_data_test.csv', index=False)
 
 
 
