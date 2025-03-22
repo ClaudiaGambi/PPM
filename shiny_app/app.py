@@ -39,7 +39,7 @@ ui = ui.page_fluid(
 
         .selectize-dropdown-content {
             background-color: ##1e3352 !important;
-            color: #ffffff !important;
+            color: #0b1c36 !important;
 
 
         .shiny-input-container {
@@ -78,7 +78,6 @@ ui = ui.page_fluid(
 
     # output list tracks
     ui.output_ui("recommended_tracks_list"),
-
 
 )
 
