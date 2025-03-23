@@ -9,42 +9,55 @@ from sklearn.preprocessing import MinMaxScaler
 from scipy.spatial.distance import euclidean
 from collections import Counter
 
+#data = pd.read_csv(r"shiny_app/data/spotify_tracks_clean.csv")
 data = pd.read_csv(Path(__file__).parent / "data/spotify_tracks_clean.csv")
 data = data.sample(frac=0.1, random_state=42)
 
-def knn_module(valence=0.5, energy=0.5, n=20):
+def knn_module(data, valence=0.5, energy=0.5, n=1000):
+    """
+    Finds the n nearest neighbors in the dataset based on valence and energy.
 
-    # Get user-selected values
-    valence_target = valence
-    energy_target = energy
+    Parameters:
+    - data (pd.DataFrame): The dataset containing 'valence' and 'energy'.
+    - valence (float): Target valence value (0 to 1).
+    - energy (float): Target energy value (0 to 1).
+    - n (int): Number of nearest neighbors to return.
 
+    Returns:
+    - pd.DataFrame: Subset of the dataset with the n nearest neighbors.
+    """
+    # Check if required columns exist
+    if not {'valence', 'energy'}.issubset(data.columns):
+        raise ValueError("Data must contain 'valence' and 'energy' columns.")
+    
     # Extract relevant features for KNN
     feature_data = data[["valence", "energy"]].to_numpy()
 
     # Fit KNN model
-    knn = NearestNeighbors(n_neighbors=1000, metric='euclidean')
+    knn = NearestNeighbors(n_neighbors=n, metric='euclidean')
     knn.fit(feature_data)
 
-    # Find 20 nearest neighbors to user-selected values
-    distances, indices = knn.kneighbors(np.array([[valence_target, energy_target]]))
+    # Find n nearest neighbors to user-selected values
+    distances, indices = knn.kneighbors(np.array([[valence, energy]]))
 
-    # Use the indices to get the nearest neighbors from the original DataFrame
-    nearest_neighbors = data.iloc[indices[0]]  # Indices is an array, so use [0] to get the correct row selection
+    # Retrieve nearest neighbors from the original DataFrame
+    nearest_neighbors = data.iloc[indices[0]]
 
-    # Select 20 based on inverse popularity
-    # Invert popularity for weighting (higher weight for lower popularity), ensuring all songs have a chance
-    popularity = nearest_neighbors['popularity'].values
-    weights = ((100 - popularity) + 1) / np.sum((100 - popularity) + 1)  # Normalize
+    return nearest_neighbors.reset_index(drop=True)
 
-    # Select n songs using weighted random sampling
-    selected_indices = np.random.choice(nearest_neighbors.index, size=n, replace=False, p=weights)
-    selected_songs = data.loc[selected_indices]
+def get_most_similar_tracks(df_track, df_users, user_id, top_n=200):
+    """
+    Recommends the most similar tracks to a given user based on their listening history.
+    
+    Parameters:
+    df_track (DataFrame): Contains track metadata including audio features, genre, and artist.
+    df_users (DataFrame): Contains user interactions with tracks.
+    user_id (int or str): The ID of the user for whom recommendations are generated.
+    top_n (int): Number of most similar tracks to return.
 
-    # Return DataFrame with selected tracks
-    return selected_songs.reset_index(drop=True)
-
-
-def get_most_similar_tracks(df_track, df_users, user_id, top_n=10):
+    Returns:
+    DataFrame: A subset of df_track with the top_n most similar tracks.
+    """
     # 1. Filter all interactions of the user
     user_data = df_users[df_users['user_id'] == user_id]
 
@@ -77,3 +90,35 @@ def get_most_similar_tracks(df_track, df_users, user_id, top_n=10):
     similar_tracks = df_track.sort_values(by='similarity_score', ascending=True).head(top_n)
 
     return similar_tracks
+
+def inverse_popularity(df_tracks, top_n=20):
+    """
+    Selects a random sample of songs from df_tracks using inverse popularity weighting.
+
+    Parameters:
+    - df_tracks (pd.DataFrame): The dataset containing a 'popularity' column.
+    - top_n (int): Number of songs to randomly select.
+
+    Returns:
+    - pd.DataFrame: Subset of df_tracks with top_n selected songs.
+    """
+    # Check if 'popularity' column exists
+    if 'popularity' not in df_tracks.columns:
+        raise ValueError("df_tracks must contain a 'popularity' column.")
+
+    # Avoid division by zero: replace 0 popularity with small value
+    df_tracks['popularity'] = df_tracks['popularity'].replace(0, 1e-6)
+
+    # Compute inverse popularity weights
+    weights = 1 / df_tracks['popularity']
+    weights /= weights.sum()  # Normalize weights to sum to 1
+
+    # Select top_n songs using weighted random sampling
+    selected_indices = np.random.choice(df_tracks.index, size=top_n, replace=False, p=weights)
+    selected_songs = df_tracks.loc[selected_indices]
+
+    return selected_songs.reset_index(drop=True)
+
+
+
+
