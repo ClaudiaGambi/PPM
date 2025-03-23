@@ -52,7 +52,7 @@ ui = ui.page_fluid(
         """
     )),
 
-    ui.h2("Spotify Track Analysis"),
+    ui.h2("NPO Luister"),
 
     # Dropdown to select a genre group
     ui.input_selectize("genre_cluster_filter", "Select Genre group:",
