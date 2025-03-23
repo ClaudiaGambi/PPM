@@ -9,7 +9,7 @@ from sklearn.preprocessing import MinMaxScaler
 from scipy.spatial.distance import euclidean
 from collections import Counter
 
-data = pd.read_csv(Path(__file__).parent / "data/spotify_tracks_clean.csv")
+data = pd.read_csv(Path(__file__).parent / "data/spotify_tracks_clean_clusters.csv")
 data = data.sample(frac=0.1, random_state=42)
 
 def knn_module(valence=0.5, energy=0.5, n=20):
@@ -79,3 +79,4 @@ def get_most_similar_tracks(df_track, df_users, user_id, top_n=10):
     similar_tracks = df_track.sort_values(by='similarity_score', ascending=True).head(top_n)
 
     return similar_tracks
+

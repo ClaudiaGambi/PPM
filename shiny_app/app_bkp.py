@@ -3,11 +3,10 @@ from shinywidgets import output_widget, render_widget
 import plotly.express as px
 import plotly.graph_objects as go
 import pandas as pd
-from  function  # Import the external module
 
 # Load dataset and randomly sample 100 rows
-tracks_data = pd.read_csv("data/spotify_tracks_clean.csv")
-tracks_data = tracks_data.sample(100)
+tracks_data = pd.read_csv("data/spotify_tracks_clean_clusters.csv")
+tracks_data = tracks_data.sample(1000)
 
 # Compute fixed axis ranges from the data (used for coordinate conversion)
 x_min = tracks_data["valence"].min()
@@ -29,31 +28,16 @@ def on_point_click(trace, points, state):
         energy_selected.set(energy)
         print(f"Updated Valence: {valence}, Energy: {energy}")
 
-# UI definition with both the Plotly output and a clickable image
+# UI definition with a custom JS hook
 ui = ui.page_fluid(
     ui.h2("Spotify Track Analysis"),
     output_widget("plot"),
     ui.h2("Selected Track Features"),
     ui.output_text("selected_valence"),
     ui.output_text("selected_energy"),
-    ui.h2("Let your buddy recommend!"),
-    # Ensure the image is served from the correct location (e.g., a 'static' folder)
-    ui.tags.img(src="static/buddy_3.png", id="clickable_image", style="cursor: pointer; width: 200px;"),
-    # Custom JS hook for the image click: send an input event "img_clicked" to the server
-    ui.tags.script("""
-        function attachImageClick() {
-            var imgEl = document.getElementById("clickable_image");
-            if (imgEl) {
-                imgEl.addEventListener("click", function() {
-                    Shiny.setInputValue("img_clicked", true, {priority: "event"});
-                });
-            } else {
-                setTimeout(attachImageClick, 500);
-            }
-        }
-        attachImageClick();
-    """),
-    # Custom JS hook for the Plotly figure click anywhere (even if not on a marker)
+    # Custom JS: Attach a click listener on the plot element.
+    # It converts the click position (using fixed margins and dimensions)
+    # into data coordinates and sends them to the Shiny server.
     ui.tags.script(f"""
         function attachPlotClick() {{
             var plotEl = document.getElementById("plot");
@@ -67,7 +51,8 @@ ui = ui.page_fluid(
                     var inner_width = total_width - 50 - 50;  // left and right margins
                     var inner_height = total_height - 50 - 50; // top and bottom margins
 
-                    // Convert the click's offset position into data coordinates assuming a linear mapping.
+                    // Convert the click's offset position (relative to the plot element)
+                    // into data coordinates assuming a linear mapping.
                     var dataX = {x_min} + ((event.offsetX - left_margin) / inner_width) * ({x_max} - {x_min});
                     var dataY = {y_max} - ((event.offsetY - top_margin) / inner_height) * ({y_max} - {y_min});
                     Shiny.setInputValue("plot_click_any", {{x: dataX, y: dataY}}, {{priority: "event"}});
@@ -112,7 +97,7 @@ def server(input, output, session):
         w.data[0].on_click(on_point_click)
         return w
 
-    # React to any click on the plot (even if not on a marker) by selecting the nearest point.
+    # React to any click (even if not on a marker) by selecting the nearest point.
     @reactive.Effect
     def update_nearest_point():
         data = input.plot_click_any()
@@ -126,15 +111,6 @@ def server(input, output, session):
             valence_selected.set(nearest_valence)
             energy_selected.set(nearest_energy)
             print(f"Nearest point selected: Valence: {nearest_valence}, Energy: {nearest_energy}")
-
-    # Reactive effect: Execute the external function when the image is clicked.
-    @reactive.Effect
-    def execute_function_on_image_click():
-        if input.img_clicked() is not None and input.img_clicked():
-            function.do_something()
-            print("Function from function.py executed!")
-            # Optionally, reset the input (if needed)
-            # session.set_input("img_clicked", None)
 
     @render.text
     def selected_valence():
