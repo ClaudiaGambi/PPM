@@ -1,7 +1,4 @@
 import pandas as pd
-from shinywidgets import output_widget, render_widget
-import plotly.express as px
-from shiny import reactive, render_text
 from pathlib import Path
 from sklearn.neighbors import NearestNeighbors
 import numpy as np
@@ -80,3 +77,121 @@ def get_most_similar_tracks(df_track, df_users, user_id, top_n=10):
 
     return similar_tracks
 
+# Step 1: Find the Most Similar User Based on Overlapping Songs
+def find_most_similar_user(user_id, df):
+    user_tracks = df[df['user_id'] == user_id]['track_id'].unique()
+
+    # Compute Jaccard similarity with other users
+    user_similarity = {}
+    for other_user in df['user_id'].unique():
+        if other_user == user_id:
+            continue
+        other_tracks = df[df['user_id'] == other_user]['track_id'].unique()
+        intersection = len(set(user_tracks) & set(other_tracks))
+        union = len(set(user_tracks) | set(other_tracks))
+        if union > 0:
+            user_similarity[other_user] = intersection / union
+
+    # Get the most similar user0
+    most_similar_user = max(user_similarity, key=user_similarity.get, default=None)
+    return most_similar_user
+
+
+# Step 2: Recommend Songs from the Most Similar User
+def recommend_from_similar_user(user_id, df, num_recommendations=5):
+    similar_user = find_most_similar_user(user_id, df)
+    if similar_user is None:
+        return []
+
+    user_tracks = set(df[df['user_id'] == user_id]['track_id'
+
+    # Retrieve track details
+    recommended_tracks = df[df['track_id'].isin(recommendations)][
+        ['track_id', 'track_name', 'artists']].drop_duplicates()
+
+    return recommended_tracks.head(num_recommendations).to_dict(orient='records')
+
+
+# Step 3: Use FAISS for Approximate Nearest Neighbor Search on Audio Features
+def build_faiss_index(df, feature_cols):
+    scaler = StandardScaler()
+    features = scaler.fit_transform(df[feature_cols].values.astype(np.float32))
+
+    index = faiss.IndexFlatL2(features.shape[1])  # L2 (Euclidean) distance
+    index.add(features)
+
+    # Save the FAISS index and scaler to a pickle file
+    with open("faiss_index.pkl", "wb") as f:
+        pickle.dump((index, scaler), f)
+
+    print("FAISS index saved successfully!")
+
+    return index, scaler
+
+
+def recommend_similar_tracks(track_id, df, index, scaler, feature_cols, num_recommendations=5):
+    track_features = df[df['track_id'] == track_id][feature_cols].values.astype(np.float32)
+    if track_features.shape[0] == 0:
+        return []
+
+    track_features = scaler.transform(track_features)
+    _, indices = index.search(track_features, num_recommendations + 1)  # +1 to exclude itself in the nex line, as the top result is always the match to self
+
+    recommended_tracks = df.iloc[indices[0][1:]][['track_id', 'track_name', 'artists']].drop_duplicates()
+
+    return recommended_tracks.head(num_recommendations).to_dict(orient='records')
+
+
+# Step 4: Combine Both Approaches
+
+def hybrid_recommendation(user_id, df, feature_cols, num_recommendations=5, cf_threshold=3, faiss_index_path=None):
+    """
+    Generate hybrid recommendations using collaborative filtering (CF) and content-based filtering (CB).
+
+    Parameters:
+        user_id (int): The user ID for whom recommendations are generated.
+        df (pd.DataFrame): The dataset containing track information.
+        feature_cols (list): List of feature column names for content-based filtering.
+        num_recommendations (int, optional): Total number of recommendations to return. Default is 5.
+        cf_threshold (int, optional): Minimum number of CF-based tracks before adding CB-based tracks. Default is 3.
+        faiss_index_path (str, optional): Path to a precomputed FAISS index pickle file.
+
+    Returns:
+        list: A list of recommended tracks in dictionary format.
+    """
+
+    # Step 1: Get recommendations from similar users (Collaborative Filtering)
+    user_based_recommendations = recommend_from_similar_user(user_id, df, num_recommendations)
+
+    # If CF recommendations meet or exceed the threshold, return them directly
+    if len(user_based_recommendations) >= cf_threshold:
+        return pd.DataFrame(user_based_recommendations).drop_duplicates().head(num_recommendations).to_dict(orient='records')
+
+    # Step 2: Load FAISS index and scaler if provided
+    if faiss_index_path:
+        with open(faiss_index_path, 'rb') as f:
+            index, scaler = pickle.load(f)
+    else:
+        # If no precomputed index is provided, build one (not recommended for large datasets)
+        index, scaler = build_faiss_index(df, feature_cols)
+
+    # Step 3: Get additional recommendations based on content similarity (only if CF is below threshold)
+    content_based_recommendations = []
+    for track in user_based_recommendations:
+        similar_tracks = recommend_similar_tracks(track['track_id'], df, index, scaler, feature_cols,
+                                                  num_recommendations=2)
+        content_based_recommendations.extend(similar_tracks)
+
+    # Step 4: Combine recommendations, ensuring uniqueness
+    final_recommendations = pd.DataFrame(
+        user_based_recommendations + content_based_recommendations
+    ).drop_duplicates().head(num_recommendations)
+
+    return final_recommendations.to_dict(orient='records')
+
+
+# Define feature columns for FAISS
+audio_features = [
+    'danceability', 'energy', 'loudness', 'speechiness', 'acousticness',
+    'instrumentalness', 'liveness', 'valence', 'tempo'
+]

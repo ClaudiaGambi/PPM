@@ -3,7 +3,10 @@ from shinywidgets import output_widget, render_widget
 import plotly.express as px
 import plotly.graph_objects as go
 import pandas as pd
-from  function  # Import the external module
+from pathlib import Path
+
+import functions  # Import the external module
+here = Path(__file__).parent
 
 # Load dataset and randomly sample 100 rows
 tracks_data = pd.read_csv("data/spotify_tracks_clean.csv")
@@ -36,23 +39,23 @@ ui = ui.page_fluid(
     ui.h2("Selected Track Features"),
     ui.output_text("selected_valence"),
     ui.output_text("selected_energy"),
-    ui.h2("Let your buddy recommend!"),
-    # Ensure the image is served from the correct location (e.g., a 'static' folder)
-    ui.tags.img(src="static/buddy_3.png", id="clickable_image", style="cursor: pointer; width: 200px;"),
-    # Custom JS hook for the image click: send an input event "img_clicked" to the server
+    ui.h2("Click the image to execute a function"),
+    # Create a placeholder for a reactive image. The id "clickable_img" must match the server function name.
+    ui.output_image("clickable_img", inline=True),
+    # Attach a JS hook that listens for clicks on the image element
     ui.tags.script("""
-        function attachImageClick() {
-            var imgEl = document.getElementById("clickable_image");
-            if (imgEl) {
-                imgEl.addEventListener("click", function() {
-                    Shiny.setInputValue("img_clicked", true, {priority: "event"});
-                });
-            } else {
-                setTimeout(attachImageClick, 500);
-            }
-        }
-        attachImageClick();
-    """),
+           function attachImageClick() {
+               var imgEl = document.getElementById("clickable_img");
+               if (imgEl) {
+                   imgEl.addEventListener("click", function() {
+                       Shiny.setInputValue("img_clicked", Math.random(), {priority: "event"});
+                   });
+               } else {
+                   setTimeout(attachImageClick, 500);
+               }
+           }
+           attachImageClick();
+       """),
     # Custom JS hook for the Plotly figure click anywhere (even if not on a marker)
     ui.tags.script(f"""
         function attachPlotClick() {{
@@ -127,14 +130,6 @@ def server(input, output, session):
             energy_selected.set(nearest_energy)
             print(f"Nearest point selected: Valence: {nearest_valence}, Energy: {nearest_energy}")
 
-    # Reactive effect: Execute the external function when the image is clicked.
-    @reactive.Effect
-    def execute_function_on_image_click():
-        if input.img_clicked() is not None and input.img_clicked():
-            function.do_something()
-            print("Function from function.py executed!")
-            # Optionally, reset the input (if needed)
-            # session.set_input("img_clicked", None)
 
     @render.text
     def selected_valence():
@@ -147,6 +142,29 @@ def server(input, output, session):
     output.plot = plot
     output.selected_valence = selected_valence
     output.selected_energy = selected_energy
+
+    @render.image
+    def clickable_img():
+        # Return a dictionary with at least src and one of width/height.
+        # "src" is relative to the app directory or the provided static_dir.
+        return {
+            "src": "static/buddy_3.png",  # Ensure that buddy_3.png is in your app directory (or a served static folder)
+            "width": "200px",
+            "height": "auto",
+            "alt": "Click me",
+            "style": "cursor: pointer;"
+        }
+
+    # @reactive.Effect
+    # def debug_img_click():
+    #     print(f"img_clicked value: {input.img_clicked()}")
+
+    # Reactive effect: Execute the external function when the image is clicked
+    @reactive.Effect
+    def execute_function_on_image_click():
+        if input.img_clicked():
+            print("Image clicked!")
+
 
 app = App(ui, server)
 
