@@ -1,16 +1,14 @@
 import pandas as pd
-from shinywidgets import output_widget, render_widget
-import plotly.express as px
-from shiny import reactive, render_text
+from shiny.ui import tags
 from pathlib import Path
 from sklearn.neighbors import NearestNeighbors
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler
 from scipy.spatial.distance import euclidean
 from collections import Counter
+import socket
 
-#data = pd.read_csv(r"shiny_app/data/spotify_tracks_clean.csv")
-data = pd.read_csv(Path(__file__).parent / "data/spotify_tracks_clean.csv")
+data = pd.read_csv(Path(__file__).parent / "data/spotify_tracks_clean_clusters.csv")
 data = data.sample(frac=0.1, random_state=42)
 
 def knn_module(data, valence=0.5, energy=0.5, n=1000):
@@ -119,6 +117,51 @@ def inverse_popularity(df_tracks, top_n=20):
 
     return selected_songs.reset_index(drop=True)
 
+def is_connected():
+    """Check if the system has an active internet connection."""
+    try:
+        socket.create_connection(("8.8.8.8", 53), timeout=3)
+        return True
+    except OSError:
+        return False
 
+
+def generate_recommended_tracks_list(tracks):
+    """
+    Generates a UI component displaying recommended tracks with album covers.
+
+    Args:
+        tracks (pd.DataFrame): DataFrame containing recommended tracks with album covers.
+
+    Returns:
+        shiny.ui.tags.div: A UI component displaying the recommended tracks.
+    """
+    if tracks.empty:
+        return tags.p("No recommendations found.")
+
+    # Check internet connection once before processing images
+    internet_available = is_connected()
+
+    items = []
+    for _, row in tracks.iterrows():
+        album_cover_src = row["album_cover"]
+
+        # If no internet, use the placeholder image
+        if not internet_available or album_cover_src == "album_cover_placeholder.png":
+            album_cover_src = "static/album_cover_placeholder.png"
+
+        item = tags.div(
+            tags.img(src=album_cover_src, height="64px", width="64px", style="margin-right:10px;"),
+            tags.div(
+                tags.b(row["track_name"]),
+                tags.div(f"by {row['artists']}"),
+                tags.div(f"Album: {row['album_name']}"),
+                style="display: inline-block; vertical-align: top;"
+            ),
+            style="background-color: #1e3352; padding: 10px; margin-bottom: 10px; border-radius: 5px;",
+        )
+        items.append(item)
+
+    return tags.div(*items)
 
 
