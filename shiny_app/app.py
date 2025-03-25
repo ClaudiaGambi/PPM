@@ -12,10 +12,11 @@ from shiny_app.functions import knn_module
 from shiny_app.functions import get_most_similar_tracks
 from shiny_app.functions import inverse_popularity
 from shiny_app.functions import generate_recommended_tracks_list
+from shiny_app.functions import hybrid_recommendation
 
 
-# Predifined user id as our current user
-user_id = 1
+# Predefined user id as our current user
+# user_id = 1
 
 # User data
 user_data = pd.read_csv(Path(__file__).parent / "data/synthetic_user_data.csv")
@@ -24,15 +25,19 @@ user_data = pd.read_csv(Path(__file__).parent / "data/synthetic_user_data.csv")
 tracks_data = pd.read_csv(Path(__file__).parent / "data/spotify_tracks_clean_clusters.csv")
 tracks_data = tracks_data.sample(frac=0.1, random_state=42)
 
+audio_features = ['danceability', 'tempo', 'acousticness', 'instrumentalness', 'liveness', 'speechiness', 'loudness']
+
 # Compute fixed axis ranges from the data (used for coordinate conversion)
 x_min = tracks_data["valence"].min()
 x_max = tracks_data["valence"].max()
 y_min = tracks_data["energy"].min()
 y_max = tracks_data["energy"].max()
 
-# Reactive values for selected valence & energy
+# Reactive values
 valence_selected = reactive.Value(0.5)
 energy_selected = reactive.Value(0.5)
+recc_tracks = reactive.Value(pd.DataFrame())
+user_id = reactive.Value(1)
 
 # Callback for when a marker is clicked directly on the figure
 def on_point_click(trace, points, state):
@@ -42,7 +47,6 @@ def on_point_click(trace, points, state):
         energy = trace.y[idx]
         valence_selected.set(valence)
         energy_selected.set(energy)
-        print(f"Updated Valence: {valence}, Energy: {energy}")
 
 # UI
 ui = ui.page_fluid(
@@ -119,6 +123,21 @@ ui = ui.page_fluid(
         }}
         attachPlotClick();
     """),
+    ui.h2("...or select a track from your buddy's playlist"),
+    ui.output_image("clickable_img", inline=True),
+    ui.tags.script("""
+               function attachImageClick() {
+                   var imgEl = document.getElementById("clickable_img");
+                   if (imgEl) {
+                       imgEl.addEventListener("click", function() {
+                           Shiny.setInputValue("img_clicked", Math.random(), {priority: "event"});
+                       });
+                   } else {
+                       setTimeout(attachImageClick, 500);
+                   }
+               }
+               attachImageClick();
+           """),
 
     ui.h2("Your recommendations:"),
 
@@ -200,10 +219,11 @@ def server(input, output, session):
             energy_selected.set(nearest_energy)
             print(f"Nearest point selected: Valence: {nearest_valence}, Energy: {nearest_energy}")
 
-
-    # REACTIVE FUNCTION: Get KNN recommendations based on slider values
+    # REACTIVE FUNCTION: Get KNN recommendations based on valence and energy values
     @reactive.Calc
     def recommended_tracks(top_n=5):
+
+        current_user_id = user_id.get()
 
         # Get valence value from nearest point
         valence = valence_selected.get()
@@ -212,13 +232,17 @@ def server(input, output, session):
         energy = energy_selected.get()
 
         # Call your KNN function with updated values for first selection
-        NN = knn_module(tracks_data, valence, energy)
+        nn = knn_module(tracks_data, valence, energy)
 
         # Only recommend tracks that are somewhat similar to tracks history
-        SIM = get_most_similar_tracks(NN, user_data, user_id=1)
+        sim = get_most_similar_tracks(nn, user_data, current_user_id)
         
         # Apply inverse popularity filter
-        return inverse_popularity(SIM, top_n)
+
+        inv_pop = inverse_popularity(sim, top_n)
+
+        recc_tracks.set(inv_pop)
+        print('Recommended tracks:', inv_pop)
 
     # PLOT FUNCTION
     @render_widget
@@ -250,11 +274,36 @@ def server(input, output, session):
 
         return scatterplot
 
+    @render.image
+    def clickable_img():
+        # Return a dictionary with at least src and one of width/height.
+        # "src" is relative to the app directory or the provided static_dir.
+        return {
+            "src": "static/buddy_3.png",  # Ensure that buddy_3.png is in your app directory (or a served static folder)
+            "width": "200px",
+            "height": "auto",
+            "alt": "buddy image",
+            "style": "cursor: pointer;"
+        }
+
+    @reactive.Effect
+    def debug_img_click():
+        print(f"img_clicked value: {input.img_clicked()}")
+
+    # Reactive effect: Execute the external function when the image is clicked
+    @reactive.Effect
+    @reactive.event(input.img_clicked)  # Ensures this runs only when the image is clicked
+    def execute_function_on_image_click():
+        current_user_id = user_id.get()  # Ensure user_id is retrieved correctly
+        buddy_rec = hybrid_recommendation(
+            current_user_id, user_data, audio_features, num_recommendations=5, cf_threshold=3
+        )
+        recc_tracks.set(buddy_rec)
+
     @render.ui
     def recommended_tracks_list():
-        tracks = recommended_tracks()  # Get recommended tracks
+        tracks = recc_tracks.get()  # Retrieve the DataFrame from the reactive value
         return generate_recommended_tracks_list(tracks)
-
 
 # run app
 app = App(ui, server)
