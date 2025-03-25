@@ -8,10 +8,11 @@ from scipy.spatial.distance import euclidean
 from collections import Counter
 import socket
 
+#data = pd.read_csv("shiny_app/data/spotify_tracks_clean_clusters.csv")
 data = pd.read_csv(Path(__file__).parent / "data/spotify_tracks_clean_clusters.csv")
 data = data.sample(frac=0.1, random_state=42)
 
-def knn_module(data, valence=0.5, energy=0.5, n=1000):
+def knn_module(data, valence=0.5, energy=0.5, n=500):
     """
     Finds the n nearest neighbors in the dataset based on valence and energy.
 
@@ -43,7 +44,7 @@ def knn_module(data, valence=0.5, energy=0.5, n=1000):
 
     return nearest_neighbors.reset_index(drop=True)
 
-def get_most_similar_tracks(df_track, df_users, user_id, top_n=200):
+def get_most_similar_tracks(df_track, df_users, user_id, top_n=50):
     """
     Recommends the most similar tracks to a given user based on their listening history.
     
@@ -89,7 +90,7 @@ def get_most_similar_tracks(df_track, df_users, user_id, top_n=200):
 
     return similar_tracks
 
-def inverse_popularity(df_tracks, top_n=20):
+def inverse_popularity(df_tracks, top_n=5):
     """
     Selects a random sample of songs from df_tracks using inverse popularity weighting.
 
@@ -116,6 +117,24 @@ def inverse_popularity(df_tracks, top_n=20):
     selected_songs = df_tracks.loc[selected_indices]
 
     return selected_songs.reset_index(drop=True)
+
+import pandas as pd
+
+def filter_christmas_songs(tracks_df):
+    christmas_keywords = ["christmas", "santa", "saint", "frosty", "snowman"]
+    
+    # Zet alles om naar kleine letters voor case-insensitive filtering
+    mask = tracks_df["track_name"].str.lower().str.contains('|'.join(christmas_keywords), na=False) | \
+           tracks_df["album_name"].str.lower().str.contains('|'.join(christmas_keywords), na=False)
+
+    # Houd alleen niet-kerstliedjes over
+    filtered_df = tracks_df[~mask]
+    
+    # Reset de index en verwijder de oude indexkolom
+    filtered_df = filtered_df.reset_index(drop=True)
+    
+    return filtered_df
+
 
 def is_connected():
     """Check if the system has an active internet connection."""
