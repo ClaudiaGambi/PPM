@@ -12,7 +12,7 @@ from shiny_app.functions import knn_module
 from shiny_app.functions import get_most_similar_tracks
 from shiny_app.functions import inverse_popularity
 from shiny_app.functions import generate_recommended_tracks_list
-
+from shiny_app.functions import filter_christmas_songs
 
 # Predifined user id as our current user
 user_id = 1
@@ -213,9 +213,12 @@ def server(input, output, session):
 
         # Call your KNN function with updated values for first selection
         NN = knn_module(tracks_data, valence, energy)
+        
+        #Christmas filter
+        NC = filter_christmas_songs(NN)
 
         # Only recommend tracks that are somewhat similar to tracks history
-        SIM = get_most_similar_tracks(NN, user_data, user_id=1)
+        SIM = get_most_similar_tracks(NC, user_data, user_id=1)
         
         # Apply inverse popularity filter
         return inverse_popularity(SIM, top_n)
