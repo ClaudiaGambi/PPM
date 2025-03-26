@@ -5,27 +5,24 @@ from shiny.ui import tags
 import plotly.express as px
 import plotly.graph_objects as go
 from shiny import reactive, render_text
-from pathlib import Path
-from sklearn.neighbors import NearestNeighbors
-import numpy as np
 from shiny_app.functions import knn_module
 from shiny_app.functions import get_most_similar_tracks
 from shiny_app.functions import inverse_popularity
 from shiny_app.functions import generate_recommended_tracks_list
-from shiny_app.functions import hybrid_recommendation
+from shiny_app.functions import hybrid_recommendation # note that functions called by this function do not need to be imported in app.py
+from shiny_app.functions import build_faiss_index
+from shiny_app.functions import recommend_similar_tracks_audio_ft
 
+from shiny_app.functions import tracks_data # import data from functions.py
+from shiny_app.functions import user_data # import data from functions.py
 
-# Predefined user id as our current user
-# user_id = 1
+# audio_features = ['danceability', 'tempo', 'acousticness', 'instrumentalness', 'liveness', 'speechiness', 'loudness']
+audio_features = ['danceability', 'energy', 'loudness', 'speechiness', 'acousticness', 'instrumentalness', 'liveness', 'valence', 'tempo']
 
-# User data
-user_data = pd.read_csv(Path(__file__).parent / "data/synthetic_user_data.csv")
+# build FAISS index from tracks_data and user_data
 
-# Tracks data
-tracks_data = pd.read_csv(Path(__file__).parent / "data/spotify_tracks_clean_clusters.csv")
-tracks_data = tracks_data.sample(frac=0.1, random_state=42)
-
-audio_features = ['danceability', 'tempo', 'acousticness', 'instrumentalness', 'liveness', 'speechiness', 'loudness']
+tracks_faiss = build_faiss_index(tracks_data, audio_features, name='faiss_tracks')
+user_faiss = build_faiss_index(user_data, audio_features, name='faiss_users')
 
 # Compute fixed axis ranges from the data (used for coordinate conversion)
 x_min = tracks_data["valence"].min()
@@ -37,7 +34,13 @@ y_max = tracks_data["energy"].max()
 valence_selected = reactive.Value(0.5)
 energy_selected = reactive.Value(0.5)
 recc_tracks = reactive.Value(pd.DataFrame())
-user_id = reactive.Value(1)
+user_id = reactive.Value(5)
+
+
+# @reactive.Effect
+# def print_user_id():
+#     print(f'current user: {user_id.get()}')
+
 
 # Callback for when a marker is clicked directly on the figure
 def on_point_click(trace, points, state):
@@ -52,36 +55,50 @@ def on_point_click(trace, points, state):
 ui = ui.page_fluid(
 
     ui.tags.head(
-    ui.tags.style(
-        """
-        body {
-            background-color: #0b1c36;
-            color: #ffffff;
-        }
+        ui.tags.style(
+            """
+            body {
+                background-color: #0b1c36;
+                color: #ffffff;
+            }
+        
+            /* Style for all numeric input fields */
+            .form-control, .selectize-input, .shiny-input-container input[type="number"] {
+                background-color: #ffffff !important;
+                color: #000000 !important;
+                border: 1px solid #ffffff;
+                padding: 8px;
+                border-radius: 5px;
+                font-size: 14px;
+            }
+        
+            /* Style for all output text boxes */
+            .shiny-output-text-verbatim, .shiny-text-output {
+                background-color: #1e1e1e !important;
+                color: #ffffff !important;
+                padding: 10px;
+                border-radius: 5px;
+                font-size: 16px;
+                font-weight: bold;
+            }
+        
+            .selectize-dropdown-content {
+                background-color: #1e3352 !important;
+                color: #ffffff !important;
+            }
+        
+            .shiny-input-container {
+                margin-bottom: 1rem;
+            }
+        
+            .widget-output, .plotly {
+                background-color: #1e1e1e !important;
+            }
+            """
+        )),
 
-        .form-control, .selectize-input {
-            background-color: ##ffffff !important;
-            color: #ffffff !important;
-            border: 0px solid #333;
-        }
-
-        .selectize-dropdown-content {
-            background-color: #1e3352 !important;
-            color: #ffffff !important;
-
-
-        .shiny-input-container {
-            margin-bottom: 1rem;
-        }
-
-        .widget-output, .plotly {
-            background-color: #1e1e1e !important;
-        }
-        """
-    )),
-
-    ui.h2("NPO Luister"),
-
+    ui.h1("NPO Luister"),
+    ui.h2("Select your favorite tracks based on energy and valence to get recommendations!"),
     # Dropdown to select a genre group
     ui.input_selectize("genre_cluster_filter", "Select Genre group:",
                     choices=["All"] + sorted(tracks_data["genre_cluster"].unique().tolist()), multiple=True),
@@ -116,6 +133,8 @@ ui = ui.page_fluid(
                     var dataX = {x_min} + ((event.offsetX - left_margin) / inner_width) * ({x_max} - {x_min});
                     var dataY = {y_max} - ((event.offsetY - top_margin) / inner_height) * ({y_max} - {y_min});
                     Shiny.setInputValue("plot_click_any", {{x: dataX, y: dataY}}, {{priority: "event"}});
+                    // Reset the track selection to its default
+                    //Shiny.setInputValue("track_selection", "Select a track", {{priority: "event"}});
                 }});
             }} else {{
                 setTimeout(attachPlotClick, 500);
@@ -124,20 +143,34 @@ ui = ui.page_fluid(
         attachPlotClick();
     """),
     ui.h2("...or select a track from your buddy's playlist"),
+    ui.input_numeric("user_id", "User ID", 1, min=1, max=max(user_data["user_id"])),
+    ui.output_text_verbatim("value"),
     ui.output_image("clickable_img", inline=True),
-    ui.tags.script("""
-               function attachImageClick() {
-                   var imgEl = document.getElementById("clickable_img");
-                   if (imgEl) {
-                       imgEl.addEventListener("click", function() {
-                           Shiny.setInputValue("img_clicked", Math.random(), {priority: "event"});
-                       });
-                   } else {
-                       setTimeout(attachImageClick, 500);
-                   }
-               }
-               attachImageClick();
-           """),
+    ui.tags.script(f"""
+       function attachImageClick() {{
+           var imgEl = document.getElementById("clickable_img");
+           if (imgEl) {{
+               imgEl.addEventListener("click", function() {{
+                   Shiny.setInputValue("img_clicked", Math.random(), {{priority: "event"}});
+                   // Reset the track selection to its default
+                   //Shiny.setInputValue("track_selection", "Select a track", {{priority: "event"}}); 
+               }});
+           }}   else {{
+               setTimeout(attachImageClick, 500);
+           }}
+       }}
+       attachImageClick();
+    """),
+
+    ui.h2('...or select a track from the catalog'),
+    ui.input_selectize(
+        "track_selection", "Search for a Track:",
+        choices=["Select a track"] + sorted(
+            tracks_data.fillna("").apply(lambda row: f"{row['track_name']} - {row['artists']} ({row['album_name']})", axis=1).unique().tolist()
+        ),
+        multiple=False,
+        options={"create": True}  # Allows free typing with autocomplete
+    ),
 
     ui.h2("Your recommendations:"),
 
@@ -178,7 +211,14 @@ def server(input, output, session):
             data = data[data["artists"].isin(selected_artists)]
 
         return data
-    
+
+    # debug function to print selected categories to console
+    @reactive.Effect
+    def print_selected_categories():
+        print(f"Selected genres: {input.genre_filter()}")
+        print(f"Selected genre clusters: {input.genre_cluster_filter()}")
+        print(f"Selected artists: {input.artist_filter()}")
+
     @render_widget
     def plot():
         # Create a Plotly Express scatter plot with fixed dimensions and margins.
@@ -186,7 +226,7 @@ def server(input, output, session):
             filtered_data(),
             x="valence",
             y="energy",
-            hover_data=["track_name", "artists", "album_name"]
+            hover_data=["track_name", "artists", "album_name", "track_genre"]
         ).update_traces(
             marker=dict(size=10, color="blue", opacity=0.7)
         ).update_layout(
@@ -198,7 +238,7 @@ def server(input, output, session):
             margin=dict(l=50, r=50, t=50, b=50),
             clickmode="event+select"
         )
-        # Convert the figure to a FigureWidget so we can attach Python callbacks.
+        # Convert the figure to a FigureWidget, so we can attach Python callbacks.
         w = go.FigureWidget(scatterplot.data, scatterplot.layout)
         # Attach the on_click callback to capture direct clicks on markers.
         w.data[0].on_click(on_point_click)
@@ -219,30 +259,82 @@ def server(input, output, session):
             energy_selected.set(nearest_energy)
             print(f"Nearest point selected: Valence: {nearest_valence}, Energy: {nearest_energy}")
 
-    # REACTIVE FUNCTION: Get KNN recommendations based on valence and energy values
     @reactive.Calc
-    def recommended_tracks(top_n=5):
+    def selected_track():
+        track_info = input.track_selection()
+        print(f'Selected track: {track_info}')
 
+        if not track_info or track_info == "Select a track":
+            return None  # No track selected
+
+        # Extract track name and artist from the selection
+        track_name, artist_album = track_info.split(" - ", 1)
+        artist, album = artist_album.rsplit(" (", 1)
+        album = album.rstrip(")")
+
+        # Find the track in the dataset
+        track_row = tracks_data[
+            (tracks_data["track_name"] == track_name) &
+            (tracks_data["artists"] == artist) &
+            (tracks_data["album_name"] == album)
+            ]
+
+        if track_row.empty:
+            print(f"WARNING: Selected track '{track_info}' not found in dataset!", flush=True)
+            return None
+
+        return track_row.iloc[0]  # Return the selected track as a Series
+
+    @reactive.Effect
+    @reactive.event(input.track_selection)  # Runs only when a track is selected
+    def execute_function_on_track_selection():
+        track = selected_track()
+
+        if track is None:
+            print("ERROR: No valid track selected.", flush=True)
+            return  # Stop execution if no valid track is found
+
+        track_id = track["track_id"]  # Extract track_id
+        print(f"catalogue track selected: {track_id}", flush=True)
+
+        # Get recommendations using FAISS
+        track_sel_rec = recommend_similar_tracks_audio_ft(
+            track_id, tracks_data, tracks_faiss[0], tracks_faiss[1], audio_features, num_recommendations=5
+        )
+
+        recc_tracks.set(track_sel_rec)
+
+    # REACTIVE FUNCTION: Get KNN recommendations based on valence and energy values
+    @reactive.Effect
+    def recommended_tracks(top_n=5):
         current_user_id = user_id.get()
 
-        # Get valence value from nearest point
+        # Get valence and energy values from the nearest point
         valence = valence_selected.get()
-
-        # Get energy value from nearest point
         energy = energy_selected.get()
 
-        # Call your KNN function with updated values for first selection
-        nn = knn_module(tracks_data, valence, energy)
+        # Call KNN function with updated values
+        nn = knn_module(filtered_data(), valence, energy)
 
-        # Only recommend tracks that are somewhat similar to tracks history
+        # Get similar tracks based on KNN results
         sim = get_most_similar_tracks(nn, user_data, current_user_id)
-        
-        # Apply inverse popularity filter
 
+        # Check if `sim` is empty before applying `inverse_popularity`
+        if sim.empty:
+            print("WARNING: No similar tracks found. No recommendations available.", flush=True)
+            return  # Stop execution if no recommendations are found
+
+        # Apply inverse popularity filter
         inv_pop = inverse_popularity(sim, top_n)
 
+        # Ensure `inv_pop` is not empty before updating `recc_tracks`
+        if inv_pop.empty:
+            print("WARNING: No recommendations after applying inverse popularity filter.", flush=True)
+            return  # Stop execution if no valid recommendations
+
+        # Update reactive value
         recc_tracks.set(inv_pop)
-        print('Recommended tracks:', inv_pop)
+        print(f"Updated recommendations using 'recommended_tracks' with {len(inv_pop)} tracks", flush=True)
 
     # PLOT FUNCTION
     @render_widget
@@ -253,10 +345,13 @@ def server(input, output, session):
             data_frame=filtered_data(),
             x="valence",
             y="energy",
-            hover_data=["track_name", "artists", "album_name"]
+            hover_data=["track_name", "artists", "album_name", "track_genre"],
         ).update_traces(
-            marker=dict(size=10, color="white", opacity=1.0)
-            # hovertemplate="<b>Song:</b> %{customdata[0]}<br><b>Artist:</b> %{customdata[1]}<br><b>Album:</b> %{customdata[2]}<extra></extra>"
+            # marker=dict(size=10, color="white", opacity=1.0)
+            hovertemplate="<b>Song:</b> %{customdata[0]}<br>"
+                          "<b>Artist:</b> %{customdata[1]}<br>"
+                          "<b>Album:</b> %{customdata[2]}<br>"
+                          "<b>Genre:</b> %{customdata[3]}<extra></extra>"
         ).update_layout(
             title={"text": "Valence vs. Energy", "font": {"color": "white"}},
             yaxis_title="Energy",
@@ -274,6 +369,27 @@ def server(input, output, session):
 
         return scatterplot
 
+    @reactive.Effect
+    def update_user_id():
+        new_user_id = input.user_id()  # Get the new value from the UI
+
+        # Validate input: Ensure it's a valid user ID
+        if new_user_id is None or not isinstance(new_user_id, (int, float)):
+            print("ERROR: Invalid input! User ID must be a number.", flush=True)
+            return  # Do not update user_id
+
+        if new_user_id < 1 or new_user_id > user_data["user_id"].max():
+            print(f"ERROR: User ID {new_user_id} is out of range!", flush=True)
+            return  # Do not update user_id
+
+        # Input is valid, update reactive value
+        print(f"updated user: {new_user_id}", flush=True)
+        user_id.set(int(new_user_id))  # Ensure it's stored as an integer
+
+    @render.text
+    def value():
+        return f"Current User ID: {input.user_id()}"
+
     @render.image
     def clickable_img():
         # Return a dictionary with at least src and one of width/height.
@@ -283,20 +399,18 @@ def server(input, output, session):
             "width": "200px",
             "height": "auto",
             "alt": "buddy image",
+            "id": "clickable_img",
             "style": "cursor: pointer;"
         }
-
-    @reactive.Effect
-    def debug_img_click():
-        print(f"img_clicked value: {input.img_clicked()}")
 
     # Reactive effect: Execute the external function when the image is clicked
     @reactive.Effect
     @reactive.event(input.img_clicked)  # Ensures this runs only when the image is clicked
     def execute_function_on_image_click():
+        print(f'image clicked', flush=True)
         current_user_id = user_id.get()  # Ensure user_id is retrieved correctly
         buddy_rec = hybrid_recommendation(
-            current_user_id, user_data, audio_features, num_recommendations=5, cf_threshold=3
+            current_user_id, user_data, user_faiss, audio_features, num_recommendations=5, cf_threshold=3
         )
         recc_tracks.set(buddy_rec)
 
