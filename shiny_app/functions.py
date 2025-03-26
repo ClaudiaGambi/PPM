@@ -8,8 +8,6 @@ from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from scipy.spatial.distance import euclidean
 from collections import Counter
 import socket
-import pickle
-import re
 
 # functions to import track and user data in app.py
 def process_tracks(data):
@@ -32,12 +30,8 @@ tracks_data = process_tracks(data) # for use in app.py
 
 user_data = pd.read_csv(Path(__file__).parent / "data/synthetic_user_data.csv")
 
-user_data = process_users(user_data) # for use in app.py
+user_data = process_users(user_data)  # for use in app.py
 
-# other variables
-max_knn_cluster = data.groupby('genre_cluster').size().min()
-max_knn_genre = data.groupby('track_genre').size().min()
-max_knn = min(max_knn_cluster, max_knn_genre)
 
 # audio_features = ['danceability', 'tempo', 'acousticness', 'instrumentalness', 'liveness', 'speechiness', 'loudness']
 audio_features = ['danceability', 'energy', 'loudness', 'speechiness', 'acousticness', 'instrumentalness', 'liveness', 'valence', 'tempo']
@@ -386,6 +380,7 @@ def recommend_similar_tracks_audio_ft(track_id, df, faiss_index, scaler, feature
 
     # Step 4: Retrieve recommended tracks
     recommended_tracks = df.iloc[indices[0][1:]]  # Exclude the first result (itself)
+    #TODO inverse popularity
 
     print(f"FAISS: Found {len(recommended_tracks)} similar tracks for track ID {track_id}", flush=True)
 

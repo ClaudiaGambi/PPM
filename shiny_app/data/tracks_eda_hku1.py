@@ -1,17 +1,46 @@
 import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+import numpy as np
+import matplotlib
+
+matplotlib.use('Qt5Agg')
 
 # Load the Spotify tracks dataset
-tracks = pd.read_csv("spotify_tracks_clean_clusters.csv")
+tracks = pd.read_csv("spotify_tracks_clean_clusters_v2.csv")
 
+audio_features = ['danceability', 'energy', 'loudness', 'speechiness', 'acousticness', 'instrumentalness', 'liveness', 'valence', 'tempo']
+
+# number of rows and columns in the dataset
+num_rows, num_cols = tracks.shape
+print(f'rows: {num_rows}, columns: {num_cols}')
+
+# column names
+column_names = tracks.columns
+print(f'column names: {column_names}')
+
+# distribution of audio features in a single boxplot x-axis labels 45 degrees rotation
+# plt.figure(figsize=(10, 5))
+sns.boxplot(data=tracks[audio_features])
+plt.xticks(rotation=45)
+plt.show()
 
 # number of genre_clusters
-
 num_genre_clusters = tracks['genre_cluster'].nunique()
 print(f'number of genre_clusters: {num_genre_clusters}')
+# boxplot of popularity by genre_cluster in a single boxplot
+sns.boxplot(x='genre_cluster', y='popularity', data=tracks)
+plt.xticks(rotation=45)
+plt.show()
 
 # number of genres
 num_genres = tracks['track_genre'].nunique()
 print(f'number of genres: {num_genres}')
+# boxplot of popularity by track_genre in a single boxplot
+# plt.figure(figsize=(10, 5))
+sns.boxplot(x='track_genre', y='popularity', data=tracks)
+plt.xticks(rotation=45)
+plt.show()
 
 # number of tracks
 num_tracks = tracks['track_id'].nunique()

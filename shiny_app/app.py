@@ -10,7 +10,7 @@ from shiny_app.functions import knn_module
 from shiny_app.functions import get_most_similar_tracks
 from shiny_app.functions import inverse_popularity
 from shiny_app.functions import generate_recommended_tracks_list
-from shiny_app.functions import hybrid_recommendation # note that functions called by this function do not need to be imported in app.py
+from shiny_app.functions import hybrid_recommendation # note that functions called by this function in the same file do not need to be imported in app.py
 from shiny_app.functions import build_faiss_index
 from shiny_app.functions import recommend_similar_tracks_audio_ft
 
@@ -120,7 +120,7 @@ ui = ui.page_fluid(
         function attachPlotClick() {{
             var plotEl = document.getElementById("plot");
             if (plotEl) {{
-                plotEl.addEventListener("click", function(event) {{
+                plotEl.addEventListener("click", function(event) {{                    
                     // These values must match those used in the plot layout:
                     var left_margin = 50;
                     var top_margin = 50;
@@ -134,8 +134,6 @@ ui = ui.page_fluid(
                     var dataX = {x_min} + ((event.offsetX - left_margin) / inner_width) * ({x_max} - {x_min});
                     var dataY = {y_max} - ((event.offsetY - top_margin) / inner_height) * ({y_max} - {y_min});
                     Shiny.setInputValue("plot_click_any", {{x: dataX, y: dataY}}, {{priority: "event"}});
-                    // Reset the track selection to its default
-                    //Shiny.setInputValue("track_selection", "Select a track", {{priority: "event"}});
                 }});
             }} else {{
                 setTimeout(attachPlotClick, 500);
@@ -151,10 +149,8 @@ ui = ui.page_fluid(
        function attachImageClick() {{
            var imgEl = document.getElementById("clickable_img");
            if (imgEl) {{
-               imgEl.addEventListener("click", function() {{
-                   Shiny.setInputValue("img_clicked", Math.random(), {{priority: "event"}});
-                   // Reset the track selection to its default
-                   //Shiny.setInputValue("track_selection", "Select a track", {{priority: "event"}}); 
+                imgEl.addEventListener("click", function() {{
+                   Shiny.setInputValue("img_clicked", Math.random(), {{priority: "event"}});                   
                }});
            }}   else {{
                setTimeout(attachImageClick, 500);
@@ -259,6 +255,9 @@ def server(input, output, session):
             valence_selected.set(nearest_valence)
             energy_selected.set(nearest_energy)
             print(f"Nearest point selected: Valence: {nearest_valence}, Energy: {nearest_energy}")
+            # Reset track selection dropdown
+            session.send_input_message("track_selection", {"value": "Select a track"})
+
 
     @reactive.Calc
     def selected_track():
@@ -414,6 +413,8 @@ def server(input, output, session):
             current_user_id, user_data, user_faiss, audio_features, num_recommendations=5, cf_threshold=3
         )
         recc_tracks.set(buddy_rec)
+        # Reset track selection dropdown
+        session.send_input_message("track_selection", {"value": "Select a track"})
 
     @render.ui
     def recommended_tracks_list():
@@ -427,3 +428,12 @@ app = App(ui, server, static_assets=Path(__file__).parent/"static")
 
 if __name__ == "__main__":
     run_app(app)
+
+#TODO check why track selection only shows tracks uo to letter C
+#TODO opt-in checkbox for buddy recommendations + tooltip
+#TODO opening splash screen?
+#TODO final layout
+#TODO seperate tab with public value metrics?
+#TODO test with more track-and user data
+#TODO test edge cases like genres with small number of tracks, etc
+#TODO: unit tests?
