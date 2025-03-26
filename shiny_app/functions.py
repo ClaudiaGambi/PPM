@@ -194,8 +194,8 @@ def generate_recommended_tracks_list(tracks):
 
         # If no internet, use the placeholder image
         if not internet_available or album_cover_src == "album_cover_placeholder.png":
-            album_cover_src = ("static/album_cover_placeholder.png")
-            # album_cover_src = str(Path(__file__).parent / "static/album_cover_placeholder.png")
+            album_cover_src = "album_cover_placeholder.png"
+            # album_cover_src = str(Path(__file__).parent / "/static/album_cover_placeholder.png")
 
         item = tags.div(
             tags.img(src=album_cover_src, height="64px", width="64px", style="margin-right:10px;"),

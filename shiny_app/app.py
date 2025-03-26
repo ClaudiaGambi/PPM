@@ -5,6 +5,7 @@ from shiny.ui import tags
 import plotly.express as px
 import plotly.graph_objects as go
 from shiny import reactive, render_text
+from pathlib import Path
 from shiny_app.functions import knn_module
 from shiny_app.functions import get_most_similar_tracks
 from shiny_app.functions import inverse_popularity
@@ -419,8 +420,10 @@ def server(input, output, session):
         tracks = recc_tracks.get()  # Retrieve the DataFrame from the reactive value
         return generate_recommended_tracks_list(tracks)
 
+
 # run app
-app = App(ui, server)
+app = App(ui, server, static_assets=Path(__file__).parent/"static")
+
 
 if __name__ == "__main__":
     run_app(app)
