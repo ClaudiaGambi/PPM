@@ -13,7 +13,6 @@ from shiny_app.functions import generate_recommended_tracks_list
 from shiny_app.functions import hybrid_recommendation # note that functions called by this function in the same file do not need to be imported in app.py
 from shiny_app.functions import build_faiss_index
 from shiny_app.functions import recommend_similar_tracks_audio_ft
-
 from shiny_app.functions import tracks_data # import data from functions.py
 from shiny_app.functions import user_data # import data from functions.py
 
@@ -62,7 +61,7 @@ ui = ui.page_fluid(
                 background-color: #0b1c36;
                 color: #ffffff;
             }
-        
+
             /* Style for all numeric input fields */
             .form-control, .selectize-input, .shiny-input-container input[type="number"] {
                 background-color: #ffffff !important;
@@ -72,7 +71,7 @@ ui = ui.page_fluid(
                 border-radius: 5px;
                 font-size: 14px;
             }
-        
+
             /* Style for all output text boxes */
             .shiny-output-text-verbatim, .shiny-text-output {
                 background-color: #1e1e1e !important;
@@ -82,16 +81,16 @@ ui = ui.page_fluid(
                 font-size: 16px;
                 font-weight: bold;
             }
-        
+
             .selectize-dropdown-content {
                 background-color: #1e3352 !important;
                 color: #ffffff !important;
             }
-        
+
             .shiny-input-container {
                 margin-bottom: 1rem;
             }
-        
+
             .widget-output, .plotly {
                 background-color: #1e1e1e !important;
             }
@@ -120,7 +119,7 @@ ui = ui.page_fluid(
         function attachPlotClick() {{
             var plotEl = document.getElementById("plot");
             if (plotEl) {{
-                plotEl.addEventListener("click", function(event) {{                    
+                plotEl.addEventListener("click", function(event) {{
                     // These values must match those used in the plot layout:
                     var left_margin = 50;
                     var top_margin = 50;
@@ -143,14 +142,14 @@ ui = ui.page_fluid(
     """),
     ui.h2("...or select a track from your buddy's playlist"),
     ui.input_numeric("user_id", "User ID", 1, min=1, max=max(user_data["user_id"])),
-    ui.output_text_verbatim("value"),
+    # ui.output_text_verbatim("value"),
     ui.output_image("clickable_img", inline=True),
     ui.tags.script(f"""
        function attachImageClick() {{
            var imgEl = document.getElementById("clickable_img");
            if (imgEl) {{
                 imgEl.addEventListener("click", function() {{
-                   Shiny.setInputValue("img_clicked", Math.random(), {{priority: "event"}});                   
+                   Shiny.setInputValue("img_clicked", Math.random(), {{priority: "event"}});
                }});
            }}   else {{
                setTimeout(attachImageClick, 500);
