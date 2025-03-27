@@ -4,30 +4,25 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 import matplotlib.pyplot as plt
+from scipy.stats import entropy
 
 # Load your user data
 user_data = pd.read_csv(Path(__file__).parent / "data/synthetic_user_data.csv")
 
-def jaccard_distance(set1, set2):
-    if not set1 and not set2:
-        return 0.0
-    return 1 - len(set1 & set2) / len(set1 | set2)
+def genre_entropy(genre_list):
+    genre_counts = pd.Series(genre_list).value_counts(normalize=True)
 
-def combined_intra_list_diversity(feature_list, genre_list, weight=0.5):
-    """
-    weight: between 0 (genre only) and 1 (audio only)
-    """
+    print(entropy(genre_counts))
+    return entropy(genre_counts)
+
+def audio_only_intra_list_diversity(feature_list):
     if len(feature_list) < 2:
         return 0.0
 
     distances = []
     for (i, j) in combinations(range(len(feature_list)), 2):
         audio_d = cosine(feature_list[i], feature_list[j])
-        genre_d = jaccard_distance(genre_list[i], genre_list[j])
-
-        # weigh audio features against genres
-        combined = weight * audio_d + (1 - weight) * genre_d
-        distances.append(combined)
+        distances.append(audio_d)
 
     return np.mean(distances) if distances else 0.0
 
@@ -41,19 +36,30 @@ user_data_filtered = user_data.dropna(subset=audio_cols)
 
 user_ild_scores = []
 
-# Get ILD
 for user_id, group in user_data_filtered.groupby('user_id'):
     audio = group[audio_cols].values
-    genres = group['track_genre'].fillna('').map(lambda g: {g.lower()}).tolist()
-    ild = combined_intra_list_diversity(audio, genres, weight=0.6)
-    user_ild_scores.append({'user_id': user_id, 'ild': ild})
+    genres = group['track_genre'].fillna('').str.lower().tolist()
 
-# Create the dataframe
+    audio_div = audio_only_intra_list_diversity(audio)
+    genre_div = genre_entropy(genres)
+
+    user_ild_scores.append({
+        'user_id': user_id,
+        'audio_ild': audio_div,
+        'genre_entropy': genre_div
+    })
+
 ild_df = pd.DataFrame(user_ild_scores)
+
+ild_df['genre_entropy_norm'] = ild_df['genre_entropy'] / ild_df['genre_entropy'].max()
+
+weight = 0.6
+ild_df['combined_ild'] = weight * ild_df['audio_ild'] + (1 - weight) * ild_df['genre_entropy_norm']
+
 
 # Plot ILD Distribution
 plt.figure(figsize=(10, 5))
-plt.hist(ild_df['ild'], bins=30, edgecolor='black')
+plt.hist(ild_df['combined_ild'], bins=30, edgecolor='black')
 plt.title('Distribution of Intra-List Diversity (ILD) Across Users')
 plt.xlabel('ILD Score')
 plt.ylabel('Number of Users')
