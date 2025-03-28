@@ -102,7 +102,7 @@ matplotlib.use('Qt5Agg')
 np.random.seed(42)
 
 # Load the Spotify tracks dataset
-tracks = pd.read_csv("spotify_tracks_clean.csv")
+tracks = pd.read_csv("spotify_tracks_clean_clusters_v2.csv")
 
 # tracks = tracks.drop(columns=['Unnamed: 0']) #remove columm 'unnamed: 0'
 tracks = tracks.drop_duplicates(subset='track_id') # drop duplicate rows based on track_id
@@ -183,7 +183,7 @@ for user_id, num_tracks in zip(users['user_id'], num_tracks_per_user):
 
     # Combine the selected tracks for the user and replicate based on genre popularity
     selected_tracks = pd.concat([selected_preferred_tracks, selected_other_tracks])
-    repeated_tracks = replicate_by_popularity(selected_tracks, genre_scale=10)
+    repeated_tracks = replicate_by_popularity(selected_tracks, genre_scale=1000)
 
     # Iterate over each row of repeated_tracks
     for idx, track in repeated_tracks.iterrows():
@@ -262,6 +262,9 @@ synthetic_data['duration_listened_perc'] = synthetic_data['duration_listened'] /
 pass
 
 ## QC
+
+# column names
+print(synthetic_data.columns)
 
 # total number of user interactions
 total_interactions = synthetic_data.shape[0]
@@ -363,6 +366,7 @@ preferred_genre_distribution = users['preferred_genre'].value_counts(normalize=T
 print(preferred_genre_distribution)
 
 synthetic_data.to_csv('synthetic_user_data.csv', index=False)
+# print('Synthetic user data saved to CSV file.')
 
 
 
