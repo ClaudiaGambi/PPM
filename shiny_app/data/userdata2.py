@@ -14,8 +14,10 @@ os.chdir(r'C:\Documenten\ADS\PPM\Assignment2\Git\PPM\shiny_app\data')
 
 np.random.seed(42)
 
-# Load the Spotify tracks dataset
-tracks = pd.read_csv("spotify_tracks_clean_clusters_v2.csv")
+
+print(user_data1.columns)
+print(final_df.columns)
+
 
 # Define genre clusters
 genre_clusters = {
@@ -171,16 +173,29 @@ interactions_df = pd.DataFrame(listening_data, columns=['user_id', 'session_id',
 print(interactions_df.head(20))
 
 # Merge user_df en listening_df op 'user_id'
-merged_df = pd.merge(interactions_df, users_df, on='user_id', how='left')
+final_df = pd.merge(interactions_df, users_df, on='user_id', how='left')
 
 # Merge het resultaat met tracks_df op 'track_id'
-final_df = pd.merge(merged_df, tracks, on='track_id', how='left')
+final_df = pd.merge(final_df, tracks, on='track_id', how='left')
+
+# Drop de dubbele track_name kolom
+final_df = final_df.drop(columns=['track_name_y'])
+
+# Verwijder '_x' uit de kolomnamen
+final_df.columns = [col.replace('_x', '') for col in final_df.columns]
+
+print(final_df.columns)  # Check of het correct is aangepast
 
 #writing the final_df to a csv file
 #give it name synthetic_user_data2.csv
 final_df.to_csv('synthetic_user_data2.csv', index=False)
 
 
+
+
+
+
+#######################################################################
 # Quick Check
 # Bekijk het resultaat
 print(final_df.head(20))
