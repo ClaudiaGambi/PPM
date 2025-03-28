@@ -1,11 +1,14 @@
 import pandas as pd
+import numpy as np
 from shiny import App, module, ui, render, reactive, event, run_app
 from shinywidgets import output_widget, render_widget
 from shiny.ui import tags
 import plotly.express as px
 import plotly.graph_objects as go
 from shiny import reactive, render_text
+from shiny.types import ImgData
 from pathlib import Path
+from sklearn.metrics.pairwise import euclidean_distances
 from shiny_app.functions import knn_module
 from shiny_app.functions import get_most_similar_tracks
 from shiny_app.functions import inverse_popularity
@@ -13,7 +16,6 @@ from shiny_app.functions import generate_recommended_tracks_list
 from shiny_app.functions import hybrid_recommendation # note that functions called by this function in the same file do not need to be imported in app.py
 from shiny_app.functions import build_faiss_index
 from shiny_app.functions import recommend_similar_tracks_audio_ft
-
 from shiny_app.functions import tracks_data # import data from functions.py
 from shiny_app.functions import user_data # import data from functions.py
 
@@ -21,7 +23,6 @@ from shiny_app.functions import user_data # import data from functions.py
 audio_features = ['danceability', 'energy', 'loudness', 'speechiness', 'acousticness', 'instrumentalness', 'liveness', 'valence', 'tempo']
 
 # build FAISS index from tracks_data and user_data
-
 tracks_faiss = build_faiss_index(tracks_data, audio_features, name='faiss_tracks')
 user_faiss = build_faiss_index(user_data, audio_features, name='faiss_users')
 
@@ -59,10 +60,23 @@ ui = ui.page_fluid(
         ui.tags.style(
             """
             body {
-                background-color: #0b1c36;
+                background-color: #0B223E;
                 color: #ffffff;
+                width: 100hw;
+                height: 100vh;
+                font-family: NPO Sans;   
             }
-        
+            
+            .container-fluid {
+                padding: 0px;   
+            }
+            
+            .row.title-bar {
+                padding: 15px;
+                display: flex;
+                height: 10hv;   
+            }
+            
             /* Style for all numeric input fields */
             .form-control, .selectize-input, .shiny-input-container input[type="number"] {
                 background-color: #ffffff !important;
@@ -98,86 +112,131 @@ ui = ui.page_fluid(
             """
         )),
 
-    ui.h1("NPO Luister"),
-    ui.h2("Select your favorite tracks based on energy and valence to get recommendations!"),
-    # Dropdown to select a genre group
-    ui.input_selectize("genre_cluster_filter", "Select Genre group:",
-                    choices=["All"] + sorted(tracks_data["genre_cluster"].unique().tolist()), multiple=True),
+    # ROW 1 (title)
+    ui.row(
+        ui.column(2, ui.output_image("image", width="150px", height="20vh")),
+        ui.column(10, ui.h1("NPO Music")),
+        class_="title-bar"),
 
-    # Dropdown to select a specific genre
-    ui.input_selectize("genre_filter", "Select Genre:",
-                    choices=["All"] + sorted(tracks_data["track_genre"].unique().tolist()), multiple=True),
+    # ROW 2 (select + plot)
+    ui.row(
+        ui.column(3,
 
-    # Dropdown to select a specific artist
-    ui.input_selectize("artist_filter", "Select Artist:",
-                    choices=["All"] + sorted(tracks_data["artists"].unique().tolist()), multiple=True),
+                  # text
+                  ui.div(ui.p("This is the NPO music streaming service. You can select certain genres, genre clusters, or no filter at all."),
+                         ui.p("Valence: the musical positiveness conveyed by a track"),
+                         ui.p("Energy: a perceptual measure of intensity and activity")),
 
-    output_widget("plot"),
-    # Custom JS: Attach a click listener on the plot element.
-    # It converts the click position (using fixed margins and dimensions)
-    # into data coordinates and sends them to the Shiny server.
-    ui.tags.script(f"""
-        function attachPlotClick() {{
-            var plotEl = document.getElementById("plot");
-            if (plotEl) {{
-                plotEl.addEventListener("click", function(event) {{                    
-                    // These values must match those used in the plot layout:
-                    var left_margin = 50;
-                    var top_margin = 50;
-                    var total_width = 800;
-                    var total_height = 800;
-                    var inner_width = total_width - 50 - 50;  // left and right margins
-                    var inner_height = total_height - 50 - 50; // top and bottom margins
+                  # Dropdown to select a genre group
+                  ui.input_selectize("genre_cluster_filter", "Select Genre group:",
+                                     choices=["All"] + sorted(tracks_data["genre_cluster"].unique().tolist()),
+                                     multiple=True),
 
-                    // Convert the click's offset position (relative to the plot element)
-                    // into data coordinates assuming a linear mapping.
-                    var dataX = {x_min} + ((event.offsetX - left_margin) / inner_width) * ({x_max} - {x_min});
-                    var dataY = {y_max} - ((event.offsetY - top_margin) / inner_height) * ({y_max} - {y_min});
-                    Shiny.setInputValue("plot_click_any", {{x: dataX, y: dataY}}, {{priority: "event"}});
-                }});
-            }} else {{
-                setTimeout(attachPlotClick, 500);
+                  # Dropdown to select a specific genre
+                  ui.input_selectize("genre_filter", "Select Genre:",
+                                     choices=["All"] + sorted(tracks_data["track_genre"].unique().tolist()),
+                                     multiple=True),
+
+                  # Dropdown to select a specific artist
+                  ui.input_selectize("artist_filter", "Select Artist:",
+                                     choices=["All"] + sorted(tracks_data["artists"].unique().tolist()),
+                                     multiple=True),
+
+                  # Slider for diversity
+                  ui.input_slider("slider_diversity", "Select diversity level:",
+                                  min=1, max=3, step=1, value=2),
+
+                  # row class
+                  class_="select-menu"),
+
+        ui.column(9,
+
+                  # plot widget
+                  output_widget("plot"),
+
+                  # Custom JS: Attach a click listener on the plot element.
+                  # It converts the click position (using fixed margins and dimensions)
+                  # into data coordinates and sends them to the Shiny server.
+
+                  ui.tags.script(f"""
+                  function attachPlotClick() {{
+                  var plotEl = document.getElementById("plot");
+                  if (plotEl) {{
+                    plotEl.addEventListener("click", function(event) {{                    
+                        // These values must match those used in the plot layout:
+                        var left_margin = 50;
+                        var top_margin = 50;
+                        var total_width = 800;
+                        var total_height = 800;
+                        var inner_width = total_width - 50 - 50;  // left and right margins
+                        var inner_height = total_height - 50 - 50; // top and bottom margins
+
+                        // Convert the click's offset position (relative to the plot element)
+                        // into data coordinates assuming a linear mapping.
+                        var dataX = {x_min} + ((event.offsetX - left_margin) / inner_width) * ({x_max} - {x_min});
+                        var dataY = {y_max} - ((event.offsetY - top_margin) / inner_height) * ({y_max} - {y_min});
+                        Shiny.setInputValue("plot_click_any", {{x: dataX, y: dataY}}, {{priority: "event"}});
+                    }});
+                }} else {{
+                    setTimeout(attachPlotClick, 500);
+                }}
             }}
-        }}
-        attachPlotClick();
-    """),
-    ui.h2("...or select a track from your buddy's playlist"),
-    ui.input_numeric("user_id", "User ID", 1, min=1, max=max(user_data["user_id"])),
-    ui.output_text_verbatim("value"),
-    ui.output_image("clickable_img", inline=True),
-    ui.tags.script(f"""
-       function attachImageClick() {{
-           var imgEl = document.getElementById("clickable_img");
-           if (imgEl) {{
-                imgEl.addEventListener("click", function() {{
-                   Shiny.setInputValue("img_clicked", Math.random(), {{priority: "event"}});                   
-               }});
-           }}   else {{
-               setTimeout(attachImageClick, 500);
-           }}
-       }}
-       attachImageClick();
-    """),
-
-    ui.h2('...or select a track from the catalog'),
-    ui.input_selectize(
-        "track_selection", "Search for a Track:",
-        choices=["Select a track"] + sorted(
-            tracks_data.fillna("").apply(lambda row: f"{row['track_name']} - {row['artists']} ({row['album_name']})", axis=1).unique().tolist()
-        ),
-        multiple=False,
-        options={"create": True}  # Allows free typing with autocomplete
+            attachPlotClick();
+        """),
+                  # row class
+                  class_="plot-container"),
     ),
 
-    ui.h2("Your recommendations:"),
+    # ROW 3 (recommendations)
+    ui.row(
+        ui.column(12,
+            ui.h2("...or select a track from your buddy's playlist"),
+            ui.input_numeric("user_id", "User ID", 1, min=1, max=max(user_data["user_id"])),
+            ui.output_text_verbatim("value"),
+            ui.output_image("clickable_img", inline=True),
+            ui.tags.script(f"""
+            function attachImageClick() {{
+                var imgEl = document.getElementById("clickable_img");
+                if (imgEl) {{
+                    imgEl.addEventListener("click", function() {{
+                        Shiny.setInputValue("img_clicked", Math.random(), {{priority: "event"}});   
+                    }}); 
+                }}   else {{
+                    setTimeout(attachImageClick, 500);
+                }}
+            }}
+            attachImageClick();
+            """),
 
-    # output list tracks
-    ui.output_ui("recommended_tracks_list"),
+            ui.h2('...or select a track from the catalog'),
+            ui.input_selectize(
+                "track_selection", "Search for a Track:",
+                choices=["Select a track"] + sorted(
+                    tracks_data.fillna("").apply(lambda row: f"{row['track_name']} - {row['artists']} ({row['album_name']})", axis=1).unique().tolist()
+                ),
+                multiple=False,
+                options={"create": True}  # Allows free typing with autocomplete
+                ),
 
+            ui.h2("Your recommendations:"),
+
+            # output list tracks
+            ui.output_ui("recommended_tracks_list"),
+
+            # column class
+            class_="recommendations-column"),
+    ),
 )
 
 # SERVER
 def server(input, output, session):
+
+    # logo
+    @render.image
+    def image():
+        dir = Path(__file__).resolve().parent
+        logo: ImgData = {"src": str(dir / "static/NPO_logo.png"), "width": "150px"}
+        return logo
 
     # REACTIVE FUNCTION: Filters Data Based on dropdown menu Selection
     @reactive.Calc
@@ -304,10 +363,29 @@ def server(input, output, session):
 
         recc_tracks.set(track_sel_rec)
 
+    # calculate diversity
+    def calculate_diversity(recommended_tracks):
+        feature_cols = ["valence", "energy"]
+        feature_matrix = recommended_tracks[feature_cols].to_numpy()
+
+        if len(feature_matrix) < 2:
+            return 0
+
+        # compute pairwise Euclidean distance
+        pairwise_distances = euclidean_distances(feature_matrix)
+        upper_triangle_values = pairwise_distances[np.triu_indices(len(pairwise_distances), k=1)]
+        diversity_score = np.mean(upper_triangle_values) if len(upper_triangle_values) > 0 else 0
+
+        return diversity_score, pairwise_distances
+
     # REACTIVE FUNCTION: Get KNN recommendations based on valence and energy values
     @reactive.Effect
     def recommended_tracks(top_n=5):
         current_user_id = user_id.get()
+
+        # get slider input
+        slider_value = int(input.slider_diversity())
+        k_value = {1: 5, 2: 50, 3: 500}[slider_value]
 
         # Get valence and energy values from the nearest point
         valence = valence_selected.get()
@@ -323,6 +401,10 @@ def server(input, output, session):
         if sim.empty:
             print("WARNING: No similar tracks found. No recommendations available.", flush=True)
             return  # Stop execution if no recommendations are found
+
+        # calculate diversity
+        diversity_score, pairwise_distances = calculate_diversity(sim)
+        diversity_score = diversity_score / np.max(pairwise_distances)
 
         # Apply inverse popularity filter
         inv_pop = inverse_popularity(sim, top_n)
@@ -345,15 +427,27 @@ def server(input, output, session):
             data_frame=filtered_data(),
             x="valence",
             y="energy",
-            hover_data=["track_name", "artists", "album_name", "track_genre"],
-        ).update_traces(
-            # marker=dict(size=10, color="white", opacity=1.0)
-            hovertemplate="<b>Song:</b> %{customdata[0]}<br>"
-                          "<b>Artist:</b> %{customdata[1]}<br>"
-                          "<b>Album:</b> %{customdata[2]}<br>"
-                          "<b>Genre:</b> %{customdata[3]}<extra></extra>"
+            custom_data=[
+                filtered_data()["valence"].apply(lambda v: "Negative" if v <= 0.33 else "Neutral" if v <= 0.66 else "Positive"),
+                filtered_data()["energy"].apply(lambda e: "Low" if e <= 0.33 else "Moderate" if e <= 0.66 else "High"),
+                filtered_data()["track_name"],
+                filtered_data()["artists"],
+                filtered_data()["album_name"],
+                filtered_data()["track_genre"],
+        ]).update_traces(
+            marker=dict(size=8, color="#DEDEDE", opacity=0.6),
+            hovertemplate="<b>Valence:</b> %{customdata[0]}<br>"
+                          "<b>Energy:</b> %{customdata[1]}<br>"
+                          "<b>Song:</b> %{customdata[2]}<br>"
+                          "<b>Artist:</b> %{customdata[3]}<br>"
+                          "<b>Album:</b> %{customdata[4]}<br>"
+                          "<b>Genre:</b> %{customdata[5]}<br>"
         ).update_layout(
-            title={"text": "Valence vs. Energy", "font": {"color": "white"}},
+            title={
+                "text": "Select your favorite tracks based on energy and valence to get recommendations!",
+                "font": {"size": 16, "color": "white"},
+                "x": 0.5,
+                "y": 0.98},
             yaxis_title="Energy",
             xaxis_title="Valence",
             width=800,
@@ -363,8 +457,18 @@ def server(input, output, session):
             plot_bgcolor="#0b1c36",
             paper_bgcolor="#0b1c36",
             font={"color": "white"},
-            xaxis=dict(color="white"),
-            yaxis=dict(color="white"),
+            xaxis=dict(
+                title=dict(text="<b>Valence</b>", font=dict(size=16)),
+                color="white",
+                ticklen=0,
+                tickvals=[0, 0.5, 1],
+                ticktext=["Negative", "Neutral", "Positive"]),
+            yaxis=dict(
+                title=dict(text="<b>Energy</b>", font=dict(size=16)),
+                color="white",
+                ticklen=0,
+                tickvals=[0, 0.5, 1],
+                ticktext=["Low", "Moderate", "High"])
         )
 
         return scatterplot
@@ -420,7 +524,6 @@ def server(input, output, session):
     def recommended_tracks_list():
         tracks = recc_tracks.get()  # Retrieve the DataFrame from the reactive value
         return generate_recommended_tracks_list(tracks)
-
 
 # run app
 app = App(ui, server, static_assets=Path(__file__).parent/"static")
