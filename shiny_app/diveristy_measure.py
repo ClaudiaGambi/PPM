@@ -12,7 +12,6 @@ user_data = pd.read_csv(Path(__file__).parent / "data/synthetic_user_data.csv")
 def genre_entropy(genre_list):
     genre_counts = pd.Series(genre_list).value_counts(normalize=True)
 
-    print(entropy(genre_counts))
     return entropy(genre_counts)
 
 def audio_only_intra_list_diversity(feature_list):
