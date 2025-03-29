@@ -1,3 +1,4 @@
+
 import pandas as pd
 import numpy as np
 from shiny import App, module, ui, render, reactive, event, run_app
@@ -13,7 +14,7 @@ from shiny_app.functions import knn_module
 from shiny_app.functions import get_most_similar_tracks
 from shiny_app.functions import inverse_popularity
 from shiny_app.functions import generate_recommended_tracks_list
-from shiny_app.functions import hybrid_recommendation # note that functions called by this function in the same file do not need to be imported in app.py
+from shiny_app.functions import buddy_recommendations
 from shiny_app.functions import build_faiss_index
 from shiny_app.functions import recommend_similar_tracks_audio_ft
 from shiny_app.functions import tracks_data # import data from functions.py
@@ -36,7 +37,8 @@ y_max = tracks_data["energy"].max()
 valence_selected = reactive.Value(0.5)
 energy_selected = reactive.Value(0.5)
 recc_tracks = reactive.Value(pd.DataFrame())
-user_id = reactive.Value(5)
+recc_tracks_buddy = reactive.Value(pd.DataFrame())
+# user_id = reactive.Value(5)
 
 
 # @reactive.Effect
@@ -64,19 +66,19 @@ ui = ui.page_fluid(
                 color: #ffffff;
                 width: 100hw;
                 height: 100vh;
-                font-family: NPO Sans;   
+                font-family: NPO Sans;
             }
-            
+
             .container-fluid {
-                padding: 0px;   
+                padding: 0px;
             }
-            
+
             .row.title-bar {
                 padding: 15px;
                 display: flex;
-                height: 10hv;   
+                height: 10hv;
             }
-            
+
             /* Style for all numeric input fields */
             .form-control, .selectize-input, .shiny-input-container input[type="number"] {
                 background-color: #ffffff !important;
@@ -86,7 +88,7 @@ ui = ui.page_fluid(
                 border-radius: 5px;
                 font-size: 14px;
             }
-        
+
             /* Style for all output text boxes */
             .shiny-output-text-verbatim, .shiny-text-output {
                 background-color: #1e1e1e !important;
@@ -96,16 +98,16 @@ ui = ui.page_fluid(
                 font-size: 16px;
                 font-weight: bold;
             }
-        
+
             .selectize-dropdown-content {
                 background-color: #1e3352 !important;
                 color: #ffffff !important;
             }
-        
+
             .shiny-input-container {
                 margin-bottom: 1rem;
             }
-        
+
             .widget-output, .plotly {
                 background-color: #1e1e1e !important;
             }
@@ -162,7 +164,7 @@ ui = ui.page_fluid(
                   function attachPlotClick() {{
                   var plotEl = document.getElementById("plot");
                   if (plotEl) {{
-                    plotEl.addEventListener("click", function(event) {{                    
+                    plotEl.addEventListener("click", function(event) {{
                         // These values must match those used in the plot layout:
                         var left_margin = 50;
                         var top_margin = 50;
@@ -191,16 +193,18 @@ ui = ui.page_fluid(
     ui.row(
         ui.column(12,
             ui.h2("...or select a track from your buddy's playlist"),
-            ui.input_numeric("user_id", "User ID", 1, min=1, max=max(user_data["user_id"])),
-            ui.output_text_verbatim("value"),
+
+            # HET SELECTEREN VAN USER ID NIET IN DE INTERFACE, LIVER COMMANDLINE COMMAND OF NIET
+            # ui.input_numeric("user_id", "User ID", 1, min=1, max=max(user_data["user_id"])),
+            # ui.output_text_verbatim("value"),
             ui.output_image("clickable_img", inline=True),
             ui.tags.script(f"""
             function attachImageClick() {{
                 var imgEl = document.getElementById("clickable_img");
                 if (imgEl) {{
                     imgEl.addEventListener("click", function() {{
-                        Shiny.setInputValue("img_clicked", Math.random(), {{priority: "event"}});   
-                    }}); 
+                        Shiny.setInputValue("img_clicked", Math.random(), {{priority: "event"}});
+                    }});
                 }}   else {{
                     setTimeout(attachImageClick, 500);
                 }}
@@ -217,6 +221,9 @@ ui = ui.page_fluid(
                 multiple=False,
                 options={"create": True}  # Allows free typing with autocomplete
                 ),
+
+            ui.h2("Your buddy's recommendations:"),
+            ui.output_ui("recommended_tracks_list_buddy"),
 
             ui.h2("Your recommendations:"),
 
@@ -317,7 +324,7 @@ def server(input, output, session):
             # Reset track selection dropdown
             session.send_input_message("track_selection", {"value": "Select a track"})
 
-
+    # track selection
     @reactive.Calc
     def selected_track():
         track_info = input.track_selection()
@@ -381,7 +388,8 @@ def server(input, output, session):
     # REACTIVE FUNCTION: Get KNN recommendations based on valence and energy values
     @reactive.Effect
     def recommended_tracks(top_n=5):
-        current_user_id = user_id.get()
+        # current_user_id = user_id.get()
+        current_user_id = 1
 
         # get slider input
         slider_value = int(input.slider_diversity())
@@ -397,7 +405,7 @@ def server(input, output, session):
         # Get similar tracks based on KNN results
         sim = get_most_similar_tracks(nn, user_data, current_user_id)
 
-        # Check if `sim` is empty before applying `inverse_popularity`
+        # Check if sim is empty before applying inverse_popularity
         if sim.empty:
             print("WARNING: No similar tracks found. No recommendations available.", flush=True)
             return  # Stop execution if no recommendations are found
@@ -409,7 +417,7 @@ def server(input, output, session):
         # Apply inverse popularity filter
         inv_pop = inverse_popularity(sim, top_n)
 
-        # Ensure `inv_pop` is not empty before updating `recc_tracks`
+        # Ensure inv_pop is not empty before updating recc_tracks
         if inv_pop.empty:
             print("WARNING: No recommendations after applying inverse popularity filter.", flush=True)
             return  # Stop execution if no valid recommendations
@@ -473,33 +481,34 @@ def server(input, output, session):
 
         return scatterplot
 
-    @reactive.Effect
-    def update_user_id():
-        new_user_id = input.user_id()  # Get the new value from the UI
+    # @reactive.Effect
+    # def update_user_id():
+    #     new_user_id = input.user_id()  # Get the new value from the UI
 
-        # Validate input: Ensure it's a valid user ID
-        if new_user_id is None or not isinstance(new_user_id, (int, float)):
-            print("ERROR: Invalid input! User ID must be a number.", flush=True)
-            return  # Do not update user_id
+    #     # Validate input: Ensure it's a valid user ID
+    #     if new_user_id is None or not isinstance(new_user_id, (int, float)):
+    #         print("ERROR: Invalid input! User ID must be a number.", flush=True)
+    #         return  # Do not update user_id
 
-        if new_user_id < 1 or new_user_id > user_data["user_id"].max():
-            print(f"ERROR: User ID {new_user_id} is out of range!", flush=True)
-            return  # Do not update user_id
+    #     if new_user_id < 1 or new_user_id > user_data["user_id"].max():
+    #         print(f"ERROR: User ID {new_user_id} is out of range!", flush=True)
+    #         return  # Do not update user_id
 
-        # Input is valid, update reactive value
-        print(f"updated user: {new_user_id}", flush=True)
-        user_id.set(int(new_user_id))  # Ensure it's stored as an integer
+    #     # Input is valid, update reactive value
+    #     print(f"updated user: {new_user_id}", flush=True)
+    #     user_id.set(int(new_user_id))  # Ensure it's stored as an integer
 
-    @render.text
-    def value():
-        return f"Current User ID: {input.user_id()}"
+    # @render.text
+    # def value():
+    #     return f"Current User ID: {input.user_id()}"
 
     @render.image
     def clickable_img():
         # Return a dictionary with at least src and one of width/height.
         # "src" is relative to the app directory or the provided static_dir.
+        dir = Path(__file__).resolve().parent
         return {
-            "src": "static/buddy_3.png",  # Ensure that buddy_3.png is in your app directory (or a served static folder)
+            "src": str(dir / "static/buddy_3.png"),  # Ensure that buddy_3.png is in your app directory (or a served static folder)
             "width": "200px",
             "height": "auto",
             "alt": "buddy image",
@@ -509,16 +518,18 @@ def server(input, output, session):
 
     # Reactive effect: Execute the external function when the image is clicked
     @reactive.Effect
-    @reactive.event(input.img_clicked)  # Ensures this runs only when the image is clicked
+    @reactive.event(input.img_clicked)
     def execute_function_on_image_click():
         print(f'image clicked', flush=True)
-        current_user_id = user_id.get()  # Ensure user_id is retrieved correctly
-        buddy_rec = hybrid_recommendation(
-            current_user_id, user_data, user_faiss, audio_features, num_recommendations=5, cf_threshold=3
-        )
-        recc_tracks.set(buddy_rec)
-        # Reset track selection dropdown
+        current_user_id = 1
+        buddy_rec = buddy_recommendations(current_user_id, user_data, num_recommendations=5)
+        recc_tracks_buddy.set(buddy_rec)
         session.send_input_message("track_selection", {"value": "Select a track"})
+
+    @render.ui
+    def recommended_tracks_list_buddy():
+        tracks = recc_tracks_buddy.get()  # Retrieve the DataFrame from the reactive value
+        return generate_recommended_tracks_list(tracks)
 
     @render.ui
     def recommended_tracks_list():
@@ -531,12 +542,3 @@ app = App(ui, server, static_assets=Path(__file__).parent/"static")
 
 if __name__ == "__main__":
     run_app(app)
-
-#TODO check why track selection only shows tracks uo to letter C
-#TODO opt-in checkbox for buddy recommendations + tooltip
-#TODO opening splash screen?
-#TODO final layout
-#TODO seperate tab with public value metrics?
-#TODO test with more track-and user data
-#TODO test edge cases like genres with small number of tracks, etc
-#TODO: unit tests?

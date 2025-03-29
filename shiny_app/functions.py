@@ -208,7 +208,8 @@ def generate_recommended_tracks_list(tracks):
 
     return tags.div(*items)
 
-def find_buddy(user_id, df):
+def buddy_recommendations(user_id, df, num_recommendations=5):
+    # Get unique tracks for the user
     user_tracks = set(df[df['user_id'] == user_id]['track_id'].unique())
 
     # Compute Jaccard similarity with other users
@@ -221,39 +222,30 @@ def find_buddy(user_id, df):
         union = len(user_tracks | other_tracks)
         if union > 0:
             similarity = intersection / union
-            if 0.4 <= similarity <= 0.6:
+            if 0.0 <= similarity <= 0.6:
                 user_similarity[other_user] = similarity
 
-    # Pick one user within the 40–60% similarity range
+    # Pick the most similar user within the 40-60% similarity range
     if user_similarity:
-        chosen_user = max(user_similarity, key=user_similarity.get)  # or use random.choice(list(user_similarity.keys()))
+        chosen_user = max(user_similarity, key=user_similarity.get)
         print(f'cf: current user: {user_id}', flush=True)
-        print(f'cf: chosen buddy (40–60% similar): {chosen_user}', flush=True)
-        return chosen_user
+        print(f'cf: chosen buddy (40-60% similar): {chosen_user}', flush=True)
+
+        # Recommend songs the chosen buddy has listened to but the user hasn't
+        similar_user_tracks = set(df[df['user_id'] == chosen_user]['track_id'])
+        recommendations = list(similar_user_tracks - user_tracks)
+
+        # Filter the dataframe to include only recommended tracks
+        recommended_tracks_df = df[df['track_id'].isin(recommendations)].drop_duplicates()
+        print(f'cf: returning {len(recommended_tracks_df)} recommended tracks from similar user', flush=True)
+
+        return recommended_tracks_df.head(num_recommendations)
+
     else:
         print(f'cf: current user: {user_id}', flush=True)
         print('cf: no buddy found', flush=True)
-        return None
+        return pd.DataFrame()  # Return an empty DataFrame if no buddy is found
 
-
-
-# Step 2: Recommend Songs from the Most Similar User
-def recommend_from_similar_user(user_id, df, num_recommendations=5):
-    similar_user = find_buddy(user_id, df)
-    if similar_user is None:
-        return pd.DataFrame()  # Return an empty DataFrame if no similar user is found
-
-    user_tracks = set(df[df['user_id'] == user_id]['track_id'])
-    similar_user_tracks = set(df[df['user_id'] == similar_user]['track_id'])
-
-    # Recommend tracks the similar user has listened to but the target user has not
-    recommendations = list(similar_user_tracks - user_tracks)
-
-    # Filter the full dataframe to include only recommended tracks
-    recommended_tracks_df = df[df['track_id'].isin(recommendations)].drop_duplicates()
-    print(f'cf: returning {len(recommended_tracks_df)} recommended tracks from similar user', flush=True)
-
-    return recommended_tracks_df.head(num_recommendations)
 
 
 # Step 3: Use FAISS for Approximate Nearest Neighbor Search on Audio Features
@@ -313,7 +305,7 @@ def recommend_similar_tracks(track_id, df, index, scaler, feature_cols, num_reco
 
 
 # Step 4: Combine Both Approaches
-
+# NOT USING THIS
 def hybrid_recommendation(user_id, df, user_faiss, feature_cols, num_recommendations=5, cf_threshold=3):
     """
     Generate hybrid recommendations using collaborative filtering (CF) and content-based filtering (CB).

@@ -371,22 +371,34 @@ synthetic_data.to_csv('synthetic_user_data.csv', index=False)
 
 
 
+# ### ADD A USER WHO IS SIMILAR TO OTHER USER FOR DEMO BUDDY SYSTEM
 
+# --- Add two synthetic users who share listening history ---
 
+# Step 1: Get original user_ids
+original_user_ids = users['user_id'].tolist()
+user1_id = original_user_ids[0]  # First user
+user2_id = original_user_ids[1]  # Second user
 
+# Step 2: Get their interaction data
+user1_data = synthetic_data[synthetic_data['user_id'] == user1_id]
+user2_data = synthetic_data[synthetic_data['user_id'] == user2_id]
 
+# Step 4: Create new user ids for shared users
+shared_user_1_id = users['user_id'].max() + 1
+shared_user_2_id = shared_user_1_id + 1
 
+# Step 5: Combine halves for shared users and assign new IDs
+shared_user_1_data = pd.concat([user2_data, user1_data]).copy()
+shared_user_2_data = pd.concat([user1_data, user2_data]).copy()
 
+shared_user_1_data['user_id'] = shared_user_1_id
+shared_user_2_data['user_id'] = shared_user_2_id
 
+# Step 6: Append to synthetic_data
+synthetic_data = pd.concat([synthetic_data, shared_user_1_data, shared_user_2_data], ignore_index=True)
+print(synthetic_data)
 
-
-
-
-
-
-
-
-
-
-
-
+# Save updated dataset
+synthetic_data.to_csv('synthetic_user_data.csv', index=False)
+# print(f"Added new user {new_user_id} with 50% similarity to user[1]")
