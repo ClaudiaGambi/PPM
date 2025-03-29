@@ -8,6 +8,8 @@ from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from scipy.spatial.distance import euclidean
 from collections import Counter
 import socket
+import random
+
 
 # functions to import track and user data in app.py
 def process_tracks(data):
@@ -83,7 +85,7 @@ def knn_module(data, valence=0.5, energy=0.5, max_knn=500):
 def get_most_similar_tracks(df_track, df_users, user_id, top_n=200):
     """
     Recommends the most similar tracks to a given user based on their listening history.
-    
+
     Parameters:
     df_track (DataFrame): Contains track metadata including audio features, genre, and artist.
     df_users (DataFrame): Contains user interactions with tracks.
@@ -206,31 +208,38 @@ def generate_recommended_tracks_list(tracks):
 
     return tags.div(*items)
 
-def find_most_similar_user(user_id, df):
-    user_tracks = df[df['user_id'] == user_id]['track_id'].unique()
+def find_buddy(user_id, df):
+    user_tracks = set(df[df['user_id'] == user_id]['track_id'].unique())
 
     # Compute Jaccard similarity with other users
     user_similarity = {}
     for other_user in df['user_id'].unique():
         if other_user == user_id:
             continue
-        other_tracks = df[df['user_id'] == other_user]['track_id'].unique()
-        intersection = len(set(user_tracks) & set(other_tracks))
-        union = len(set(user_tracks) | set(other_tracks))
+        other_tracks = set(df[df['user_id'] == other_user]['track_id'].unique())
+        intersection = len(user_tracks & other_tracks)
+        union = len(user_tracks | other_tracks)
         if union > 0:
-            user_similarity[other_user] = intersection / union
+            similarity = intersection / union
+            if 0.4 <= similarity <= 0.6:
+                user_similarity[other_user] = similarity
 
-    # Get the most similar user
-    most_similar_user = max(user_similarity, key=user_similarity.get, default=None)
-    print(f'cf: current user: {user_id}', flush=True)
-    print(f'cf: most similar user: {most_similar_user}', flush=True)
+    # Pick one user within the 40–60% similarity range
+    if user_similarity:
+        chosen_user = max(user_similarity, key=user_similarity.get)  # or use random.choice(list(user_similarity.keys()))
+        print(f'cf: current user: {user_id}', flush=True)
+        print(f'cf: chosen buddy (40–60% similar): {chosen_user}', flush=True)
+        return chosen_user
+    else:
+        print(f'cf: current user: {user_id}', flush=True)
+        print('cf: no buddy found', flush=True)
+        return None
 
-    return most_similar_user
 
 
 # Step 2: Recommend Songs from the Most Similar User
 def recommend_from_similar_user(user_id, df, num_recommendations=5):
-    similar_user = find_most_similar_user(user_id, df)
+    similar_user = find_buddy(user_id, df)
     if similar_user is None:
         return pd.DataFrame()  # Return an empty DataFrame if no similar user is found
 
@@ -286,6 +295,8 @@ def build_faiss_index(df, feature_cols, name="faiss_index"):
     # print(f"FAISS index saved successfully as {filename}")
 
     return index, scaler
+
+
 def recommend_similar_tracks(track_id, df, index, scaler, feature_cols, num_recommendations=5):
     track_features = df[df['track_id'] == track_id][feature_cols].values.astype(np.float32)
     if track_features.shape[0] == 0:
