@@ -9,6 +9,7 @@ from scipy.stats import entropy
 # Load your user data
 user_data = pd.read_csv(Path(__file__).parent / "data/synthetic_user_data.csv")
 
+# indicating how spread-out the user’s genre listening is
 def genre_entropy(genre_list):
     genre_counts = pd.Series(genre_list).value_counts(normalize=True)
 
