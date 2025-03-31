@@ -115,7 +115,7 @@ def get_most_similar_tracks(df_track, df_users, user_id, top_n=200):
         # print(f'audio distance: {audio_distance}\n', flush=True)
         genre_distance = 0 if row['track_genre'] == most_common_genre else 1
         artist_distance = 0 if row['artists'] == most_common_artist else 1
-        total_distance = audio_distance * 0.5 + genre_distance * 0.5 + artist_distance * 0
+        total_distance = audio_distance * 0.5 + genre_distance * 0.3 + artist_distance * 0.2
 
         distances.append(total_distance)
 
