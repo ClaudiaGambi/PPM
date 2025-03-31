@@ -137,11 +137,6 @@ ui = ui.page_fixed(
                                      choices=["All"] + sorted(tracks_data["track_genre"].unique().tolist()),
                                      multiple=True),
 
-                  # Dropdown to select a specific artist
-                  ui.input_selectize("artist_filter", "Select Artist:",
-                                     choices=["All"] + sorted(tracks_data["artists"].unique().tolist()),
-                                     multiple=True),
-
                   # Slider for diversity
                   ui.input_slider("slider_diversity", "Select diversity level:",
                                   min=1, max=3, step=1, value=2),
@@ -283,13 +278,6 @@ def server(input, output, session):
         if selected_genres and "All" not in selected_genres:
             data = data[data["track_genre"].isin(selected_genres)]
 
-        # Artist filter
-        selected_artists = input.artist_filter()
-        if isinstance(selected_artists, str):
-            selected_artists = [selected_artists]
-        if selected_artists and "All" not in selected_artists:
-            data = data[data["artists"].isin(selected_artists)]
-
         return data
 
     # debug function to print selected categories to console
@@ -297,7 +285,6 @@ def server(input, output, session):
     def print_selected_categories():
         print(f"Selected genres: {input.genre_filter()}")
         print(f"Selected genre clusters: {input.genre_cluster_filter()}")
-        print(f"Selected artists: {input.artist_filter()}")
 
     @render_widget
     def plot():
@@ -387,30 +374,19 @@ def server(input, output, session):
 
         recc_tracks_track.set(track_sel_rec)
 
-    # calculate diversity
-    def calculate_diversity(recommended_tracks):
-        feature_cols = ["valence", "energy"]
-        feature_matrix = recommended_tracks[feature_cols].to_numpy()
-
-        if len(feature_matrix) < 2:
-            return 0
-
-        # compute pairwise Euclidean distance
-        pairwise_distances = euclidean_distances(feature_matrix)
-        upper_triangle_values = pairwise_distances[np.triu_indices(len(pairwise_distances), k=1)]
-        diversity_score = np.mean(upper_triangle_values) if len(upper_triangle_values) > 0 else 0
-
-        return diversity_score, pairwise_distances
+    # get slider value for level of diversity
+    @reactive.calc
+    def get_diversity_level():
+        return {1: 5, 2: 20, 3: 200}[input.slider_diversity()]  # low = personalisation, high = diversity
 
     # REACTIVE FUNCTION: Get KNN recommendations based on valence and energy values
     @reactive.Effect
-    def recommended_tracks(top_n=5):
+    def recommended_tracks():
         # current_user_id = user_id.get()
         current_user_id = 1
 
         # get slider input
-        slider_value = int(input.slider_diversity())
-        k_value = {1: 5, 2: 50, 3: 500}[slider_value]
+        top_n = get_diversity_level()
 
         # Get valence and energy values from the nearest point
         valence = valence_selected.get()
@@ -420,16 +396,18 @@ def server(input, output, session):
         nn = knn_module(filtered_data(), valence, energy)
 
         # Get similar tracks based on KNN results
-        sim = get_most_similar_tracks(nn, user_data, current_user_id)
+        sim = get_most_similar_tracks(nn, user_data, current_user_id, top_n=top_n)
+        sim = sim.head(5)
+
+        # check max length if top_n == 200
+        if top_n == 200:
+            max_tracks = len(sim)
+            top_n = min(max_tracks, 200)
 
         # Check if sim is empty before applying inverse_popularity
         if sim.empty:
             print("WARNING: No similar tracks found. No recommendations available.", flush=True)
             return  # Stop execution if no recommendations are found
-
-        # calculate diversity
-        diversity_score, pairwise_distances = calculate_diversity(sim)
-        diversity_score = diversity_score / np.max(pairwise_distances)
 
         # Apply inverse popularity filter
         inv_pop = inverse_popularity(sim, top_n)
@@ -566,8 +544,6 @@ app = App(ui, server, static_assets=Path(__file__).parent/"static")
 if __name__ == "__main__":
     run_app(app)
 
-# TODO: remove artist filter
 # TODO logic genre&cluster filter
-# TODO diversity slider (Rosalie)
 # TODO tooltip explanation app
 # TODO: privacy checkbox + modal
