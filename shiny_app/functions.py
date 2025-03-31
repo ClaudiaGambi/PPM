@@ -22,10 +22,8 @@ def process_users(data):
 
 # track data loading
 
-data = pd.read_csv(Path(__file__).parent / "data/spotify_tracks_clean_clusters_v2.csv")
-data = data.sample(frac=0.1, random_state=42)
-
-# data.to_csv(Path(__file__).parent / "data/spotify_tracks_clean_clusters_v2_sample.csv", index=False)
+data = pd.read_csv(Path(__file__).parent / "data/spotify_tracks.csv")
+data = data.sample(frac=0.3, random_state=42)
 
 tracks_data = process_tracks(data) # for use in app.py
 # user data loading
@@ -323,7 +321,7 @@ def hybrid_recommendation(user_id, df, user_faiss, feature_cols, num_recommendat
     """
 
     # Step 1: Get recommendations from similar users (Collaborative Filtering)
-    user_based_recommendations = recommend_from_similar_user(user_id, df, num_recommendations)
+    user_based_recommendations = buddy_recommendations(user_id, df, num_recommendations)
 
     # If CF recommendations meet or exceed the threshold, return them directly
     if len(user_based_recommendations) >= cf_threshold:
@@ -388,3 +386,14 @@ def recommend_similar_tracks_audio_ft(track_id, df, faiss_index, scaler, feature
     print(f"FAISS: Found {len(recommended_tracks)} similar tracks for track ID {track_id}", flush=True)
 
     return recommended_tracks
+
+# Callback for when a marker is clicked directly on the figure
+def on_point_click(trace, points, state):
+    if points.point_inds:  # Only proceed if a point is clicked
+        idx = points.point_inds[0]  # Get index of first clicked point
+        valence = trace.x[idx]
+        energy = trace.y[idx]
+        valence_selected.set(valence)
+        energy_selected.set(energy)
+
+
