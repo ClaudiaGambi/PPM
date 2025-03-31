@@ -1,335 +1,285 @@
-# create synthetic data for user data
-
-# are you aware of this dataset?
-#
-# https://www.kaggle.com/datasets/maharshipandya/-spotify-tracks-dataset/data
-
-# Yes, I'm aware of the Spotify Tracks Dataset on Kaggle.
-# This dataset typically contains information about various tracks available on Spotify, including features like track
-# name, artist, album, release date, and various audio features such as danceability, energy, loudness, tempo, and more.
-# These features can be used for a variety of data analysis and machine learning tasks, such as music recommendation systems,
-# trend analysis, and audio feature exploration. If you have specific questions or need help with this dataset, feel free to ask!
-#
-# how would you create a synthetic user data set from users that interacted with this track data set?#
-
-# Creating a synthetic user dataset based on interactions with the Spotify Tracks Dataset involves simulating user
-# behaviors and interactions with the tracks.Here's a step-by-step approach to create such a synthetic dataset:#
-# ### Step 1: Define User Profiles
-#
-# 1. ** User Demographics: **
-# - Create attributes such as user ID, age, gender, location, and preferred genres.
-#
-# 2. ** Listening Habits: ** - Define attributes like average listening time per day, preferred listening times, and
-# device used(e.g., mobile, desktop).
-#
-# ### Step 2: Simulate User Interactions
-#
-# 1. ** Select  Tracks: **
-# - Randomly assign a subset of tracks from the Spotify# dataset to each user, ensuring a mix of popular and niche
-# tracks.
-#
-# 2. ** Interaction Types: **
-# - Define interaction types such as play, skip, like, and share.
-#
-# 3. ** Interaction# Frequency: **
-# - Determine how often each user interacts with tracks, which can be based on their listening habits.#
-
-# ### Step 3: Generate Interaction Data
-#
-# 1. ** Create a Timeframe: **
-# - Decide on a timeframe for the interactions, such as a month or a year.
-#
-# 2. ** Simulate # Interactions: **
-# - For each user, simulate interactions with tracks over the chosen timeframe.Use random distributions to model
-# realistic behavior, such as:
-#     - ** Normal  distribution **
-#     for daily listening times.
-#     - ** Poisson   distribution **
-#     for the number of interactions per day.
-#     - ** Exponential
-#     distribution **
-#     for time between interactions.
-#
-# 3. ** Incorporate Track Features: **
-# - Use track features like danceability, energy, and tempo to influence interaction likelihood.For example, a user who
-# prefers high - energy music might interact more with tracks having high energy scores.
-#
-# ### Step 4: Compile the Dataset
-#
-# 1. ** Structure the Data: **
-# - Organize the data into a tabular format with columns such as user ID, track ID, interaction type, timestamp, and any
-# other relevant features.
-
-# 2. ** Ensure Diversity: **
-# - Make sure the dataset reflects a diverse range of user behaviors and interactions.#
-
-# ### Step 5: Validate the Dataset
-#
-# 1. ** Check for Realism: ** -
-#
-# Ensure that the synthetic data reflects realistic user behavior patterns.
-
-# 2. ** Adjust Parameters: **
-# - Tweak the parameters and distributions used in the simulation to better match expected user behaviors.
-#
-
-# modify the code in the following ways
-#
-# - the age distribution mean is around 30, median at 25 and long tail up to 75
-# - per user id, user interactions should be clustered in genres, for example a user that listens to rock music has mainly
-# interaction with other rock music genre tracks
-# - the track id chosen under user interactions is based on popularity score in track dataset, with highly popular tracks overrepresented.
-# - a fraction (~10%)  of the interactions should have a rating from 1 to 5 (integers only) for tracks
-
-# - add empty options to both location and gender
-
-# - ratings should be normally distributed around 2.5 and no rating if interaction type is skip - move like in
-# interaction type colum to separate column called like that has binary values 0 and 1
-# - create not _ike column that has# binary values 0 and 1.  1 in both like and no_like column is not possible
-# - number of tracks per user follows a log distribution with a few users listening to relatively a lot of tracks
-
-
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
-from scipy.stats import skewnorm
+from scipy.stats import lognorm, skewnorm
 import matplotlib.pyplot as plt
 import matplotlib
 import seaborn as sns
 
-matplotlib.use('Qt5Agg')
+#matplotlib.use('Qt5Agg')
+
+import os
+print(os.getcwd())
+os.chdir(r'C:\Documenten\ADS\PPM\Assignment2\Git\PPM\shiny_app\data')
 
 np.random.seed(42)
 
-# Load the Spotify tracks dataset
-tracks = pd.read_csv("spotify_tracks_clean_clusters_v2.csv")
 
-# tracks = tracks.drop(columns=['Unnamed: 0']) #remove columm 'unnamed: 0'
-tracks = tracks.drop_duplicates(subset='track_id') # drop duplicate rows based on track_id
+print(user_data1.columns)
+print(final_df.columns)
 
-# Define parameters
-num_users = 100
 
-# Generate synthetic users
-age_skewness = 10
-ages = np.clip(np.random.normal(30, 10, num_users), 18, 75).astype(int)
+# Define genre clusters
+genre_clusters = {
+    "acoustic & traditional": ['acoustic', 'country', 'folk', 'honky-tonk', 'bluegrass', 'singer-songwriter'],
+    "calm": ['sleep', 'ambient', 'study', 'chill', 'new-age'],
+    "children": ['kids', 'children'],
+    "classical": ['piano', 'classical', 'opera'],
+    "comedy": ['comedy'],
+    "dance & electronic": ['trip-hop', 'idm', 'hardstyle', 'electronic', 'club', 'detroit-techno', 'happy', 'disco',
+                            'techno', 'house', 'chicago-house', 'trance', 'j-dance', 'dance', 'edm', 'breakbeat',
+                            'drum-and-bass', 'minimal-techno', 'electro', 'progressive-house', 'dubstep', 'deep-house'],
+    "global": ['world-music', 'afrobeat'],
+    "hip-hop & r&b": ['hip-hop', 'r-n-b'],
+    "jazz, soul & funk": ['blues', 'jazz', 'funk', 'soul', 'gospel'],
+    "latin & brazilian": ['latin', 'salsa', 'pagode', 'brazil', 'sertanejo', 'forro', 'latino', 'mpb', 'tango', 'samba'],
+    "metal & heavy": ['goth', 'death-metal', 'industrial', 'grindcore', 'metalcore', 'metal', 'black-metal', 'hardcore', 'groove', 'heavy-metal'],
+    "pop & mainstream": ['power-pop', 'j-idol', 'j-pop', 'mandopop', 'synth-pop', 'k-pop', 'cantopop', 'indie-pop', 'pop', 'pop-film'],
+    "reggae, ska & dub": ['ska', 'reggae', 'dub', 'dancehall', 'reggaeton'],
+    "rock & alternative": ['rockabilly', 'emo', 'alternative', 'punk-rock', 'garage', 'guitar', 'rock', 'rock-n-roll', 'alt-rock', 'psych-rock', 'grunge', 'punk', 'indie', 'hard-rock', 'j-rock'],
+    "soundtrack": ['anime', 'show-tunes', 'disney']
+}
 
+# Define personas
+personas = [
+    {"name": "Ambitious Youth", "age_group": (14, 22), "listening_frequency": "often", "preferred_clusters": ["dance & electronic", "hip-hop & r&b", "pop & mainstream"], "share": 0.08},
+    {"name": "Adventurous City Dwellers", "age_group": (22, 46), "listening_frequency": "often", "preferred_clusters": ["rock & alternative", "pop & mainstream"], "share": 0.08},
+    {"name": "Self-Aware Family People", "age_group": (22, 46), "listening_frequency": "sometimes", "preferred_clusters": ["hip-hop & r&b", "pop & mainstream"], "share": 0.11},
+    {"name": "Technical Doers", "age_group": (43, 56), "listening_frequency": "often", "preferred_clusters": ["rock & alternative", "pop & mainstream", "dance & electronic", "metal & heavy"], "share": 0.2},
+    {"name": "Caring Multitaskers", "age_group": (33, 57), "listening_frequency": "rarely", "preferred_clusters": ["pop & mainstream"], "share": 0.22},
+    {"name": "Authentic Believers", "age_group": (30, 58), "listening_frequency": "rarely", "preferred_clusters": ["classical"], "share": 0.08},
+    {"name": "Wealthy In-Depth Seekers", "age_group": (54, 73), "listening_frequency": "often", "preferred_clusters": ["classical", "jazz, soul & funk"], "share": 0.09},
+    {"name": "Cautious Seniors", "age_group": (63, 76), "listening_frequency": "sometimes", "preferred_clusters": ["acoustic & traditional", "classical"], "share": 0.14}
+]
+
+# Gender- en locatie-opties
 gender_options = ['Male', 'Female', None]
-location_options = ['USA', 'UK', 'Canada', 'Australia', None]
+location_options = ['BE', 'NL', 'Other', None]
 
-genre_distribution = tracks['track_genre'].value_counts(normalize=True)
+# Luisterfrequentie mapping
+listening_frequency_mapping = {
+    'rarely': (1, 5),
+    'sometimes': (5, 15),
+    'often': (15, 25),
+    'very often': (25, 40)
+}
 
-users = pd.DataFrame({
-    'user_id': range(1, num_users + 1),
-    'age': ages,
-    'gender': np.random.choice(gender_options, size=num_users, p=[0.45, 0.45, 0.10]),
-    'location': np.random.choice(location_options, size=num_users, p=[0.25, 0.25, 0.25, 0.15, 0.10]),
-    'preferred_genre': np.random.choice(genre_distribution.index, size=num_users, p=genre_distribution.values)
-})
+# Functie om gemiddelde luistertijd per week te berekenen
+def get_avg_hours_per_week(frequency):
+    return np.random.uniform(*listening_frequency_mapping[frequency])
 
-# Normalize track popularity for weighted selection within genres
-tracks['popularity_genre'] = tracks.groupby('track_genre')['popularity'].transform(lambda x: x / x.sum())
+# Genereer gebruikersdata
+num_users = 100
+users = []
+for i in range(num_users):
+    persona = np.random.choice(personas, p=[p["share"] for p in personas])
+    min_age, max_age = persona["age_group"]
+    age = np.random.randint(min_age, max_age + 1)
+    gender = np.random.choice(gender_options, p=[0.45, 0.45, 0.10])
+    location = np.random.choice(location_options, p=[0.25, 0.50, 0.10, 0.15])
+    preferred_genre_cluster = np.random.choice(persona["preferred_clusters"])
+    preferred_genre = np.random.choice(genre_clusters[preferred_genre_cluster])
+    listen_freq = persona["listening_frequency"]
+    avg_hours_per_week = get_avg_hours_per_week(listen_freq)
 
-# We will collect all interactions here
-interactions = []
+    buddy_consent = np.random.choice([0, 1], p=[0.25, 0.75])
+    users.append([i + 1, persona["name"], age, gender, location, preferred_genre_cluster, 
+                  preferred_genre, listen_freq, avg_hours_per_week, num_tracks, buddy_consent])
 
-# Number of tracks per user follows a log-normal distribution
-num_tracks_per_user = np.random.lognormal(mean=2.0, sigma=0.5, size=num_users).astype(int)
+# Maak DataFrame met gebruikersdata
+users_df = pd.DataFrame(users, columns=['user_id', 'persona', 'age', 'gender', 'location', 
+                                        'preferred_genre_cluster', 'preferred_genre', 'listen_freq', 
+                                        'avg_hours_per_week', 'num_tracks', 'buddy_consent'])
 
-# A global counter to ensure each interaction has a unique microsecond offset
-global_interaction_counter = 0
-
-# --- Function to replicate each row in a DataFrame based on track popularity ---
-def replicate_by_popularity(df, genre_scale=10):
-    """
-    For each row (track) in df, replicate the row based on its genre popularity.
-    A higher 'popularity_genre' value (normalized popularity within the genre) results in more replicates.
-
-    Parameters:
-      df: DataFrame containing track rows (must include 'popularity_genre' column).
-      genre_scale: A scaling factor to amplify the effect of genre popularity.
-
-    Returns:
-      A new DataFrame with replicated rows.
-    """
-    repeated_rows = []
-    for idx, row in df.iterrows():
-        # Compute replicate count based on genre popularity.
-        replicate_count = max(1, np.random.poisson(lam=row['popularity_genre'] * genre_scale))
-        repeated_rows.extend([row] * replicate_count)
-    return pd.DataFrame(repeated_rows, columns=df.columns)
+#definieer popularity weight
+tracks['popularity_weight'] = tracks['popularity'] / 100
 
 
-# Loop through each user to simulate interactions
-for user_id, num_tracks in zip(users['user_id'], num_tracks_per_user):
-    preferred_genre = users.loc[users['user_id'] == user_id, 'preferred_genre'].values[0]
-    num_preferred_tracks = int(num_tracks * np.random.uniform(0.6, 0.8))
-    num_other_tracks = num_tracks - num_preferred_tracks
+# Simuleer sessies en trackselectie
+sessions = []
+listening_data = []
 
-    # Select ~60-80% tracks from the user's preferred genre, rest from other genres
-    preferred_genre_tracks = tracks[tracks['track_genre'] == preferred_genre]
-    selected_preferred_tracks = preferred_genre_tracks.sample(
-        n=num_preferred_tracks,
-        replace=True,
-        weights=preferred_genre_tracks['popularity_genre']
-    )
+for _, user in users_df.iterrows():
+    user_id = user['user_id']
+    avg_hours = user['avg_hours_per_week']
+    total_tracks = int(avg_hours * 17)  # 17 tracks per uur
+    preferred_cluster = user['preferred_genre_cluster']
+    preferred_genre = user['preferred_genre']
+    
+    # Tracks selecteren met gewogen kans op basis van populariteit
+    # Zorg ervoor dat de populariteit gewichten correct zijn
 
-    other_genre_tracks = tracks[tracks['track_genre'] != preferred_genre]
-    selected_other_tracks = other_genre_tracks.sample(
-        n=num_other_tracks,
-        replace=True,
-        weights=other_genre_tracks['popularity_genre']
-    )
+    # Selecteer tracks op basis van de voorkeuren
+    preferred_tracks = tracks[tracks['genre_cluster'] == preferred_cluster]
+    preferred_genre_tracks = preferred_tracks[preferred_tracks['track_genre'] == preferred_genre]
+    other_tracks = tracks[tracks['genre_cluster'] != preferred_cluster]
 
-    # Combine the selected tracks for the user and replicate based on genre popularity
-    selected_tracks = pd.concat([selected_preferred_tracks, selected_other_tracks])
-    repeated_tracks = replicate_by_popularity(selected_tracks, genre_scale=1000)
+    num_preferred_genre = int(total_tracks * 0.5)
+    num_preferred_cluster = int(total_tracks * 0.3)
+    num_other = total_tracks - (num_preferred_genre + num_preferred_cluster)
 
-    # Iterate over each row of repeated_tracks
-    for idx, track in repeated_tracks.iterrows():
-        global_interaction_counter += 1
+    selected_tracks = []
 
-        track_id = track['track_id']
+    if not preferred_genre_tracks.empty:
+        selected_tracks.extend(preferred_genre_tracks.sample(n=num_preferred_genre, weights='popularity_weight', replace=True).to_dict('records'))
+    if not preferred_tracks.empty:
+        selected_tracks.extend(preferred_tracks.sample(n=num_preferred_cluster, weights='popularity_weight', replace=True).to_dict('records'))
+    if not other_tracks.empty:
+        selected_tracks.extend(other_tracks.sample(n=num_other, weights='popularity_weight', replace=True).to_dict('records'))
 
-        # Randomly pick an interaction type
-        interaction_type = np.random.choice(['play', 'skip', 'share'])
+    # Debug: Controleer hoeveel tracks zijn geselecteerd
+    if len(selected_tracks) == 0:
+        print(f"No tracks selected for user {user_id}")
+        continue  # Skip gebruiker als er geen tracks geselecteerd zijn
+    
+    # Genereer sessies
+    session_id = 1
+    start_date = datetime(2025, 3, 1)
 
-        # Random day + random second offset, plus an incremental microsecond offset
-        timestamp = (
-                datetime.now()
-                - timedelta(days=np.random.randint(0, 30), seconds=np.random.randint(0, 86400))
-                + timedelta(microseconds=global_interaction_counter)
-        )
+    while total_tracks > 0 and selected_tracks:
+        session_tracks = np.random.randint(3, 15)  # Willekeurig aantal tracks per sessie
+        session_tracks = min(session_tracks, total_tracks)
+        total_tracks -= session_tracks
+        
+        session_time = start_date + timedelta(days=np.random.randint(0, 30), 
+                                              hours=np.random.randint(0, 24))
+        
+        sessions.append([user_id, session_id, session_time])
+        
+        for _ in range(session_tracks):
+            track = np.random.choice(selected_tracks)
+            like = np.random.choice([1, 0, -1], p=[0.6, 0.3, 0.1])
+            
+            # Calculate the duration listened
+            duration_listened = int(skewnorm.rvs(a=10 if like == 1 else -10 if like == -1 else 0, 
+                                                 loc=0, scale=track['duration_ms']))
+            duration_listened = np.clip(duration_listened, 0, track['duration_ms'])
+            
+            # Calculate the completion rate
+            completion_rate = duration_listened / track['duration_ms']
+            
+            # Append the data to listening_data
+            listening_data.append([user_id, session_id, track['track_id'], track['track_name'], track['duration_ms'], 
+                                   duration_listened, completion_rate, like, session_time])
+        
+        session_id += 1
 
-        # Determine if 'like' and 'not_like' should be set (10% chance)
-        if np.random.rand() < 0.1:
-            like = np.random.choice([0, 1], p=[0.8, 0.2])
-            not_like = 1 - like
-        else:
-            like = np.nan
-            not_like = np.nan
+# Zet data om in DataFrames
+#sessions_df = pd.DataFrame(sessions, columns=['user_id', 'session_id', 'session_time'])
+interactions_df = pd.DataFrame(listening_data, columns=['user_id', 'session_id', 'track_id', 'track_name', 
+                                                      'duration_ms', 'duration_listened', 'completion_rate', 'like','session_time'])
 
-        # Assign rating for ~10% of interactions (if not skip)
-        rating = None
-        if interaction_type != 'skip' and np.random.rand() < 0.1:
-            if like == 1:
-                # Higher ratings for liked tracks
-                rating = np.random.randint(3, 6)
-            elif not_like == 1:
-                # Lower ratings for not liked tracks
-                rating = np.random.randint(1, 3)
-            else:
-                # Normally distributed rating around 3
-                rating = int(np.clip(round(np.random.normal(loc=3, scale=1.0)), 1, 5))
 
-        # Calculate duration_listened based on interaction
-        track_duration = track['duration_ms']
-        if interaction_type in ['play', 'share'] or like == 1:
-            duration_listened = int(skewnorm.rvs(a=10, loc=0, scale=track_duration))
-            duration_listened = np.clip(duration_listened, 0, track_duration)
-        elif not_like == 1:
-            duration_listened = int(skewnorm.rvs(a=-10, loc=0, scale=track_duration))
-            duration_listened = np.clip(duration_listened, 0, track_duration)
-        else:
-            duration_listened = 0
+print(interactions_df.head(20))
 
-        interactions.append({
-            'user_id': user_id,
-            'track_id': track_id,
-            'interaction_type': interaction_type,
-            'duration_listened': duration_listened,
-            'timestamp': timestamp,
-            'rating': rating,
-            'like': like,
-            'not_like': not_like
-        })
+# Merge user_df en listening_df op 'user_id'
+final_df = pd.merge(interactions_df, users_df, on='user_id', how='left')
 
-# Convert interactions to DataFrame
-interactions_df = pd.DataFrame(interactions)
+# Merge het resultaat met tracks_df op 'track_id'
+final_df = pd.merge(final_df, tracks, on='track_id', how='left')
 
-# Merge user and interaction data
-synthetic_data = interactions_df.merge(users, on='user_id')
+# Drop de dubbele track_name kolom
+final_df = final_df.drop(columns=['track_name_y'])
 
-# Merge synthetic data with tracks data
-synthetic_data = synthetic_data.merge(tracks, on='track_id', how='left', sort=False)
+# Verwijder '_x' uit de kolomnamen
+final_df.columns = [col.replace('_x', '') for col in final_df.columns]
 
-# Calculate duration_listened fraction
-synthetic_data['duration_listened_perc'] = synthetic_data['duration_listened'] / synthetic_data['duration_ms']
+print(final_df.columns)  # Check of het correct is aangepast
 
-# Show the first few rows
-# print(synthetic_data.head())
+#writing the final_df to a csv file
+#give it name synthetic_user_data.csv
+final_df.to_csv('synthetic_user_data.csv', index=False)
 
-pass
 
-## QC
 
-# column names
-print(synthetic_data.columns)
 
-# total number of user interactions
-total_interactions = synthetic_data.shape[0]
+
+
+#######################################################################
+# Quick Check
+# Bekijk het resultaat
+print(final_df.head(20))
+print(final_df.columns)
+print(final_df['time_signature'].head())
+#total numbers of interactions
+total_interactions = final_df.shape[0]
 print(f'Total number of user interactions: {total_interactions}')
 
 # plot histogram of number of tracks per user, sorted from highest to lowest using seaborn
+num_tracks_per_user = final_df['user_id'].value_counts().sort_values(ascending=False)
 
 # Plot histogram of number of total tracks per user
-# sns.histplot(num_tracks_per_user, bins=30, kde=True)
-# plt.xlabel('Number of Total Tracks per User')
-# plt.ylabel('Frequency')
-# plt.title('Distribution of Number of Total Tracks per User')
-# plt.show()
+sns.histplot(num_tracks_per_user, bins=30, kde=True)
+plt.xlabel('Number of Total Tracks per User')
+plt.ylabel('Frequency')
+plt.title('Distribution of Number of Total Tracks per User')
+plt.show()
 
 # Plot histogram of number of unique tracks per user
-unique_tracks_per_user = synthetic_data.groupby('user_id')['track_id'].nunique()
+unique_tracks_per_user = final_df.groupby('user_id')['track_id'].nunique()
 
-# sns.histplot(unique_tracks_per_user, bins=30, kde=True)
-# plt.xlabel('Number of Unique Tracks per User')
-# plt.ylabel('Frequency')
-# plt.title('Distribution of Number of Unique Tracks per User')
-# plt.show()
+sns.histplot(unique_tracks_per_user, bins=30, kde=True)
+plt.xlabel('Number of Unique Tracks per User')
+plt.ylabel('Frequency')
+plt.title('Distribution of Number of Unique Tracks per User')
+plt.show()
 
-# proportion of interactions with a like or not_like score
-like_proportion = synthetic_data['like'].notna().mean()
-not_like_proportion = synthetic_data['not_like'].notna().mean()
+#show range of popularity in tracks
+popularity_range = final_df['popularity'].max() - final_df['popularity'].min()
 
-print(f'Proportion of interactions with a like score: {like_proportion:.2f}')
-print(f'Proportion of interactions with a not_like score: {not_like_proportion:.2f}')
 
-# plot distribution of ratings
-
-# Filter out interactions with ratings
-# rated_interactions = synthetic_data['rating'].dropna()
-
-# Plot distribution of ratings
-# sns.histplot(synthetic_data['rating'].dropna(), bins=5, discrete=True) # Filter out interactions with ratings
-# plt.xlabel('Rating')
-# plt.ylabel('Frequency')
-# plt.title('Distribution of Ratings')
-# plt.show()
-
-# number of genres
-# Calculate the number of unique genres
-num_genres = synthetic_data['track_genre'].nunique()
+num_genres = final_df['track_genre'].nunique()
 print(f'number of genres: {num_genres}')
 
 # number of tracks
-num_tracks = synthetic_data['track_id'].nunique()
+num_tracks = final_df['track_id'].nunique()
 print(f'number of tracks: {num_tracks}')
 
+#total number of tracks in final_df
+total_tracks = final_df.shape[0]
+print(f'Total number of tracks: {total_tracks}')
+
+
 # number of artists
-num_artists = synthetic_data['artists'].nunique()
+num_artists = final_df['artists'].nunique()
 print(f'number of artists: {num_artists}')
 
+#number of artists in tracks
+num_artists_tracks = tracks['artists'].nunique()
+print(f'number of artists in tracks: {num_artists_tracks}')
+
 # number of albums
-num_albums = synthetic_data['album_name'].nunique()
+num_albums = final_df['album_name'].nunique()
 print(f'number of albums: {num_albums}')
 
 # number of tracks per genre
-tracks_per_genre = synthetic_data['track_genre'].value_counts()
+tracks_per_genre = final_df['track_genre'].value_counts()
 print(f'tracks per genre: {tracks_per_genre}')
 
+#average popularity in tracks of classical
+
+#show for each genre the average popularity and the populrity weight in tracks
+average_popularity = final_df.groupby('track_genre')['popularity'].mean()
+print(f'average popularity per genre: {average_popularity}')
+
+# # plot within this plot the number of tracks per genre in final_df
+# plt.figure(figsize=(10, 6))
+# plt.bar(average_popularity.index, average_popularity.values, alpha=0.5, label='Average Popularity')
+# plt.bar(tracks_per_genre.index, tracks_per_genre.values, alpha=0.5, label='Number of Tracks')
+# plt.xlabel('Genre')
+# plt.ylabel('Count')
+# plt.title('Average Popularity and Number of Tracks per Genre')
+# plt.xticks(rotation=90)
+# plt.legend()
+# plt.tight_layout()
+# plt.show()
+
+# popularity weight
+popularity_weight = final_df.groupby('track_genre')['popularity_weight'].mean()
+print(f'popularity weight per genre: {popularity_weight}')
+
 # number of tracks per artist
-tracks_per_artist = synthetic_data['artists'].value_counts()
+tracks_per_artist = final_df['artists'].value_counts()
 print(f'tracks per artist: {tracks_per_artist}')
 
 # mean number of total tracks per user
@@ -341,64 +291,39 @@ mean_unique_tracks = unique_tracks_per_user.mean()
 print(f'Mean number of unique tracks per user: {mean_unique_tracks:.2f}')
 
 #  mean number of replicate tracks grouped by user
-mean_replicate_tracks = synthetic_data.groupby(['user_id', 'track_id']).size().mean()
+mean_replicate_tracks = final_df.groupby(['user_id', 'track_id']).size().mean()
 print(f'Mean number of replicate tracks per user: {mean_replicate_tracks:.2f}')
-
-# rating distribution
-rating_distribution = synthetic_data['rating'].value_counts(normalize=True)
-print(f'Rating distribution:\n{rating_distribution}')
 
 # number of users (users dataframe)
 
 num_users = users['user_id'].nunique()
 print(f'Number of unique users: {num_users}')
 
+num_none_genders = users_df['gender'].isna().sum()
+print(f"Aantal None in gender: {num_none_genders}")
+
+
 # user age distribution
-age_distribution = users['age'].value_counts(normalize=True)
+age_distribution = users_df['age'].value_counts(normalize=True)
 print(age_distribution)
+#plot age distribution
+plt.figure(figsize=(10, 6))
+plt.hist(users_df['age'], bins=20, edgecolor='black', alpha=0.7)
+plt.xlabel('Age')
+plt.ylabel('Frequency')
+plt.title('Age Distribution of Users')
+plt.show()
+
 
 # user gender distribution
-gender_distribution = users['gender'].value_counts(normalize=True)
+gender_distribution = users_df['gender'].value_counts(normalize=True)
 print(gender_distribution)
+
+# check how many 'None' in gender
+
 
 # users preferred genre distribution
 preferred_genre_distribution = users['preferred_genre'].value_counts(normalize=True)
 print(preferred_genre_distribution)
 
-synthetic_data.to_csv('synthetic_user_data.csv', index=False)
-# print('Synthetic user data saved to CSV file.')
-
-
-
-
-# ### ADD A USER WHO IS SIMILAR TO OTHER USER FOR DEMO BUDDY SYSTEM
-
-# --- Add two synthetic users who share listening history ---
-
-# Step 1: Get original user_ids
-original_user_ids = users['user_id'].tolist()
-user1_id = original_user_ids[0]  # First user
-user2_id = original_user_ids[1]  # Second user
-
-# Step 2: Get their interaction data
-user1_data = synthetic_data[synthetic_data['user_id'] == user1_id]
-user2_data = synthetic_data[synthetic_data['user_id'] == user2_id]
-
-# Step 4: Create new user ids for shared users
-shared_user_1_id = users['user_id'].max() + 1
-shared_user_2_id = shared_user_1_id + 1
-
-# Step 5: Combine halves for shared users and assign new IDs
-shared_user_1_data = pd.concat([user2_data, user1_data]).copy()
-shared_user_2_data = pd.concat([user1_data, user2_data]).copy()
-
-shared_user_1_data['user_id'] = shared_user_1_id
-shared_user_2_data['user_id'] = shared_user_2_id
-
-# Step 6: Append to synthetic_data
-synthetic_data = pd.concat([synthetic_data, shared_user_1_data, shared_user_2_data], ignore_index=True)
-print(synthetic_data)
-
-# Save updated dataset
-synthetic_data.to_csv('synthetic_user_data.csv', index=False)
-# print(f"Added new user {new_user_id} with 50% similarity to user[1]")
+#final_df.to_csv('synthetic_user_data.csv', index=False)
