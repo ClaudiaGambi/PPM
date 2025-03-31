@@ -434,7 +434,7 @@ def server(input, output, session):
 
         # Update reactive value
         recc_tracks_plot.set(inv_pop)
-        recc_tracks_track.set(inv_pop)
+
         print(f"Updated recommendations using 'recommended_tracks' with {len(inv_pop)} tracks", flush=True)
 
     # PLOT FUNCTION

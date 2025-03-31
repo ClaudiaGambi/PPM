@@ -381,11 +381,20 @@ def recommend_similar_tracks_audio_ft(track_id, df, faiss_index, scaler, feature
 
     # Step 4: Retrieve recommended tracks
     recommended_tracks = df.iloc[indices[0][1:]]  # Exclude the first result (itself)
-    #TODO inverse popularity
 
     print(f"FAISS: Found {len(recommended_tracks)} similar tracks for track ID {track_id}", flush=True)
 
-    return recommended_tracks
+    # Step 5: select least popular track from set
+    inv_pop = inverse_popularity(recommended_tracks, 10)
+
+    # Ensure inv_pop is not empty before updating recc_tracks
+    if inv_pop.empty:
+        print("WARNING: No recommendations after applying inverse popularity filter.", flush=True)
+        return  # Stop execution if no valid recommendations
+
+    print(f"FAISS: Found {len(inv_pop)} least popular tracks for track ID {track_id}", flush=True)
+
+    return inv_pop
 
 # Callback for when a marker is clicked directly on the figure
 def on_point_click(trace, points, state):
