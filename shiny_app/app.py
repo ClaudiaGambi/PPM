@@ -1,12 +1,11 @@
 
 import pandas as pd
 import numpy as np
-from shiny import App, module, ui, render, reactive, event, run_app
+from shiny import App, ui, render, reactive, run_app
 from shinywidgets import output_widget, render_widget
-from shiny.ui import tags
+from shiny.ui import modal, tags, modal_show, modal_button
 import plotly.express as px
 import plotly.graph_objects as go
-from shiny import reactive, render_text
 from shiny.types import ImgData
 from pathlib import Path
 from sklearn.metrics.pairwise import euclidean_distances
@@ -85,7 +84,7 @@ ui = ui.page_fixed(
             /* Style for all output text boxes */
             .shiny-output-text-verbatim, .shiny-text-output {
                 background-color: #1e1e1e !important;
-                color: #ffffff !important;
+                color: black !important;
                 padding: 10px;
                 border-radius: 5px;
                 font-size: 16px;
@@ -103,6 +102,20 @@ ui = ui.page_fixed(
 
             .widget-output, .plotly {
                 background-color: #1e1e1e !important;
+            }
+            
+            /* Style for modal */
+            .modal-content,
+            .modal-header,
+            .modal-body,
+            .modal-footer {
+                background-color: #1e3352 !important;
+                color: #ffffff !important;
+            }
+            
+            .modal-btn-default {
+                background-color: #333333;
+                color: white;
             }
             """
         )),
@@ -222,7 +235,9 @@ ui = ui.page_fixed(
             }}
             attachImageClick();
             """),
-            class_="image-column"),
+            ui.input_checkbox("buddy_consent", 'buddy consent', value=False),
+            ui.output_ui("buddy_modal"),
+                class_="buddy-column"),
         ui.column(8,
                   ui.h2("Your buddy's recommendations:"),
             ui.output_ui("recommended_tracks_list_buddy"),
@@ -470,7 +485,7 @@ def server(input, output, session):
                           "<b>Genre:</b> %{customdata[5]}<br>"
         ).update_layout(
             title={
-                "text": "\nSelect your favorite tracks based on energy and valence to get recommendations!",
+                "text": "Select your favorite tracks based on energy and valence to get recommendations!",
                 "font": {"size": 12, "color": "white"},
                 "x": 0.5,
                 "y": 0.98},
@@ -544,9 +559,35 @@ def server(input, output, session):
         recc_tracks_buddy.set(buddy_rec)
         session.send_input_message("track_selection", {"value": "Select a track"})
 
+    @reactive.effect
+    @reactive.event(input.buddy_consent)
+    def buddy_modal():
+        if input.buddy_consent():
+            m = modal(
+                "By providing buddy consent you are aware that this potentially decreases your privacy, as you might be identified via your buddy's internal/external data outside your control",
+                title="Buddy consent",
+                easy_close=True,
+                fade=False,
+                footer=modal_button("Close")
+                )
+            modal_show(m)
+
     @render.ui
     def recommended_tracks_list_buddy():
+        if not input.buddy_consent():
+            return tags.div(
+                "❌ No recommendations available. Please provide buddy consent.",
+                style="color: #ffffff; font-weight: bold; padding: 10px;"
+            )
+
         tracks = recc_tracks_buddy.get()  # Retrieve the DataFrame from the reactive value
+
+        if tracks.empty:
+            return tags.div(
+                "⚠️ No recommendations found for your buddy.",
+                style="color: #ffffff; font-weight: bold; padding: 10px;"
+            )
+
         return generate_recommended_tracks_list(tracks)
 
     @render.ui
@@ -566,8 +607,6 @@ app = App(ui, server, static_assets=Path(__file__).parent/"static")
 if __name__ == "__main__":
     run_app(app)
 
-# TODO: remove artist filter
 # TODO logic genre&cluster filter
-# TODO diversity slider (Rosalie)
 # TODO tooltip explanation app
-# TODO: privacy checkbox + modal
+

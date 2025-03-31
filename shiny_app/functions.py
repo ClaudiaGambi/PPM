@@ -23,7 +23,7 @@ def process_users(data):
 # track data loading
 
 data = pd.read_csv(Path(__file__).parent / "data/spotify_tracks.csv")
-data = data.sample(frac=0.3, random_state=42)
+data = data.sample(frac=0.1, random_state=42)
 
 tracks_data = process_tracks(data) # for use in app.py
 # user data loading
