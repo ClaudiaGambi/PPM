@@ -79,6 +79,20 @@ def knn_module(data, valence=0.5, energy=0.5, max_knn=500):
 
     return nearest_neighbors.reset_index(drop=True)
 
+def filter_christmas_songs(tracks_df):
+    christmas_keywords = ["christmas", "santa", "saint", "frosty", "snowman"]
+    
+    # Zet alles om naar kleine letters voor case-insensitive filtering
+    mask = tracks_df["track_name"].str.lower().str.contains('|'.join(christmas_keywords), na=False) | \
+           tracks_df["album_name"].str.lower().str.contains('|'.join(christmas_keywords), na=False)
+
+    # Houd alleen niet-kerstliedjes over
+    filtered_df = tracks_df[~mask]
+    
+    # Reset de index en verwijder de oude indexkolom
+    filtered_df = filtered_df.reset_index(drop=True)
+    
+    return filtered_df
 
 def get_most_similar_tracks(df_track, df_users, user_id, top_n=200):
     """

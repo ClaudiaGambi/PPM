@@ -17,6 +17,7 @@ from shiny_app.functions import buddy_recommendations
 from shiny_app.functions import build_faiss_index
 from shiny_app.functions import recommend_similar_tracks_audio_ft
 from shiny_app.functions import on_point_click
+from shiny_app.functions import filter_christmas_songs
 from shiny_app.functions import tracks_data # import data from functions.py
 from shiny_app.functions import user_data # import data from functions.py
 
@@ -409,6 +410,9 @@ def server(input, output, session):
 
         # Call KNN function with updated values
         nn = knn_module(filtered_data(), valence, energy)
+        
+        #apply filter function to remove christmas songs
+        nc = filter_christmas_songs(nn)
 
         # Get similar tracks based on KNN results
         sim = get_most_similar_tracks(nn, user_data, current_user_id, top_n=top_n)
