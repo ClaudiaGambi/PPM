@@ -1,4 +1,5 @@
 
+# import packages
 import pandas as pd
 import numpy as np
 from shiny import App, ui, render, reactive, run_app
@@ -9,6 +10,8 @@ import plotly.graph_objects as go
 from shiny.types import ImgData
 from pathlib import Path
 from sklearn.metrics.pairwise import euclidean_distances
+
+# import function from functions.py file
 from shiny_app.functions import knn_module
 from shiny_app.functions import get_most_similar_tracks
 from shiny_app.functions import inverse_popularity
@@ -18,23 +21,23 @@ from shiny_app.functions import build_faiss_index
 from shiny_app.functions import recommend_similar_tracks_audio_ft
 from shiny_app.functions import on_point_click
 from shiny_app.functions import filter_christmas_songs
-from shiny_app.functions import tracks_data # import data from functions.py
-from shiny_app.functions import user_data # import data from functions.py
+from shiny_app.functions import tracks_data
+from shiny_app.functions import user_data
 
-# audio_features = ['danceability', 'tempo', 'acousticness', 'instrumentalness', 'liveness', 'speechiness', 'loudness']
+# save audio features to list
 audio_features = ['danceability', 'energy', 'loudness', 'speechiness', 'acousticness', 'instrumentalness', 'liveness', 'valence', 'tempo']
 
 # build FAISS index from tracks_data and user_data
 tracks_faiss = build_faiss_index(tracks_data, audio_features, name='faiss_tracks')
 user_faiss = build_faiss_index(user_data, audio_features, name='faiss_users')
 
-# Compute fixed axis ranges from the data (used for coordinate conversion)
+# compute fixed axis ranges for valence & energy (used for coordinate conversion)
 x_min = tracks_data["valence"].min()
 x_max = tracks_data["valence"].max()
 y_min = tracks_data["energy"].min()
 y_max = tracks_data["energy"].max()
 
-# Reactive values
+# reactive values
 valence_selected = reactive.Value(0.5)
 energy_selected = reactive.Value(0.5)
 recc_tracks_plot = reactive.Value(pd.DataFrame())
@@ -48,12 +51,14 @@ recc_tracks_track = reactive.Value(pd.DataFrame())
 #     print(f'current user: {user_id.get()}')
 
 
-# UI
+# ui
 ui = ui.page_fixed(
 
+    # app customization
     ui.tags.head(
         ui.tags.style(
             """
+            /* body */
             body {
                 background-color: #0B223E;
                 color: #ffffff;
@@ -65,14 +70,15 @@ ui = ui.page_fixed(
             .container-fluid {
                 padding: 0px;
             }
-
+            
+            /* title */
             .row.title-bar {
                 padding: 15px;
                 display: flex;
                 height: 10hv;
             }
 
-            /* Style for all numeric input fields */
+            /* input select */
             .form-control, .selectize-input, .shiny-input-container input[type="number"] {
                 background-color: #ffffff !important;
                 color: #000000 !important;
@@ -82,7 +88,7 @@ ui = ui.page_fixed(
                 font-size: 14px;
             }
 
-            /* Style for all output text boxes */
+            /* output boxes */
             .shiny-output-text-verbatim, .shiny-text-output {
                 background-color: #1e1e1e !important;
                 color: #ffffff !important;
@@ -105,7 +111,7 @@ ui = ui.page_fixed(
                 background-color: #1e1e1e !important;
             }
             
-            /* Style for modal */
+            /* modal */
             .modal-content,
             .modal-header,
             .modal-body,
@@ -121,37 +127,36 @@ ui = ui.page_fixed(
             """
         )),
 
-    # ROW 1 (title)
+    # row 1 (title)
     ui.row(
         ui.column(6, ui.output_image("npo_logo", width="auto", height="auto")),
-        # ui.column(6, ui.h1("NPO Music")),
         class_="title-bar"),
 
-    # Row 2 (description)
+    # row 2 (description)
     ui.row(ui.h1("Explore new artists", class_='mb-5'),
            ui.h2("Select your favorite tracks based on energy and valence "),
             class_ = "description"),
 
-    # ROW 3 (filter + plot + recommendations)
+    # row 3 (filter + plot + recommendations)
     ui.row(
         ui.column(3,
 
-                  # text
+                  # explanation plot
                    ui.p('You can select certain genre clusters, specific genres, or no filter at all.\n'),
                          ui.p("Valence: the musical positiveness conveyed by a track"),
                          ui.p("Energy: a perceptual measure of intensity and activity"),
 
-                  # Dropdown to select a genre group
+                  # select genre group
                   ui.input_selectize("genre_cluster_filter", "Select Genre cluster:",
                                      choices=["All"] + sorted(tracks_data["genre_cluster"].unique().tolist()),
                                      multiple=True),
 
-                  # Dropdown to select a specific genre
+                  # select genre
                   ui.input_selectize("genre_filter", "Select Genre:",
                                      choices=["All"] + sorted(tracks_data["track_genre"].unique().tolist()),
                                      multiple=True),
 
-                  # Slider for diversity
+                  # slider diversity
                   ui.input_slider("slider_diversity", "Select diversity level:",
                                   min=1, max=3, step=1, value=2),
 
@@ -163,10 +168,7 @@ ui = ui.page_fixed(
                       # plot widget
                       output_widget("plot"),
 
-                      # Custom JS: Attach a click listener on the plot element.
-                      # It converts the click position (using fixed margins and dimensions)
-                      # into data coordinates and sends them to the Shiny server.
-
+                      # clickable plot
                       ui.tags.script(f"""
                       function attachPlotClick() {{
                       var plotEl = document.getElementById("plot");
@@ -196,98 +198,121 @@ ui = ui.page_fixed(
                 # column class
                 class_="plot-container"),
 
-
             ui.column(4,
-                ui.h2("Your recommendations:"),
 
-                    # output list tracks
-                     ui.output_ui("recommended_tracks_plot"),
+                      # show recommendations
+                      ui.h2("Your recommendations:"),
 
-                    # column class
-                    class_="recommendations-column"
+                      # output list tracks
+                      ui.output_ui("recommended_tracks_plot"),
+
+                      # column class
+                      class_="recommendations-column"
             ),
+
         # row class
         class_ = "filter-plot-recommendations mb-5"),
 
-        #ROW 4 (buddy recommendations)
+    # row 4 (buddy recommendations)
     ui.row(
-    ui.column(4,
-            ui.h2("...or select a track from your buddy's playlist"),
+        ui.column(4,
+                  ui.h2("...or select a track from your buddy's playlist"),
 
-            # HET SELECTEREN VAN USER ID NIET IN DE INTERFACE, LIVER COMMANDLINE COMMAND OF NIET
-            # ui.input_numeric("user_id", "User ID", 1, min=1, max=max(user_data["user_id"])),
-            # ui.output_text_verbatim("value"),
-            ui.output_image("clickable_img", inline=True),
-            ui.tags.script(f"""
-            function attachImageClick() {{
-                var imgEl = document.getElementById("clickable_img");
-                if (imgEl) {{
-                    imgEl.addEventListener("click", function() {{
-                        Shiny.setInputValue("img_clicked", Math.random(), {{priority: "event"}});
-                    }});
-                }}   else {{
-                    setTimeout(attachImageClick, 500);
-                }}
-            }}
-            attachImageClick();
-            """),
-            ui.input_checkbox("buddy_consent", 'buddy consent', value=False),
-            ui.output_ui("buddy_modal"),
-                class_="buddy-column"),
+                  # HET SELECTEREN VAN USER ID NIET IN DE INTERFACE, LIVER COMMANDLINE COMMAND OF NIET
+                  # ui.input_numeric("user_id", "User ID", 1, min=1, max=max(user_data["user_id"])),
+                  # ui.output_text_verbatim("value"),
+
+                  ui.output_image("clickable_img", inline=True),
+                  ui.tags.script(f"""
+                  function attachImageClick() {{
+                    var imgEl = document.getElementById("clickable_img");
+                    if (imgEl) {{
+                        imgEl.addEventListener("click", function() {{
+                            Shiny.setInputValue("img_clicked", Math.random(), {{priority: "event"}});
+                        }});
+                    }}   else {{
+                        setTimeout(attachImageClick, 500);
+                    }}
+                  }}
+                  attachImageClick();
+                  """),
+
+                  # checkbox buddy consent
+                  ui.input_checkbox("buddy_consent", 'buddy consent', value=False),
+
+                  # buddy modal
+                  ui.output_ui("buddy_modal"),
+
+                  # column class
+                  class_="buddy-column"),
+
         ui.column(8,
+
+                  # show buddy recommendations
                   ui.h2("Your buddy's recommendations:"),
-            ui.output_ui("recommended_tracks_list_buddy"),
-            class_="buddy_recommendations-column"),
+                  ui.output_ui("recommended_tracks_list_buddy"),
+
+                  # column class
+                  class_="buddy_recommendations-column"),
+
         # row class
         class_="buddy-recommendations mb-5"),
 
-    # ROW 5 (track selection)
+    # row 5 (track selection)
     ui.row(
         ui.column(4,
-            ui.h2('...or select a track from the catalog'),
-            ui.input_selectize(
-                "track_selection", "Search for a Track:",
-                choices=["Select a track"] + sorted(
-                    tracks_data.fillna("").apply(lambda row: f"{row['track_name']} - {row['artists']} ({row['album_name']})", axis=1).unique().tolist()
-                ),
-                multiple=False,
-                options={"create": True} ), # Allows free typing with autocomplete
-            # column class
-            class_="recommendations-column"),
+
+                  # select specific track
+                  ui.h2('...or select a track from the catalog'),
+                  ui.input_selectize("track_selection", "Search for a Track:",
+                                     choices=["Select a track"] + sorted(
+                                         tracks_data.fillna("").apply(lambda row: f"{row['track_name']} - {row['artists']} ({row['album_name']})",
+                                                                      axis=1).unique().tolist()
+                                     ),
+                                     multiple=False,
+                                     options={"create": True} ),
+
+                  # column class
+                  class_="recommendations-column"),
+
         ui.column(8,
-               ui.h2("Your recommendations based on selected track:"),
-            ui.output_ui("recommended_tracks_track"),
-            class_="track_recommendations-column"),
+
+                  # show recommendations specific track
+                  ui.h2("Your recommendations based on selected track:"),
+                  ui.output_ui("recommended_tracks_track"),
+
+                  # column class
+                  class_="track_recommendations-column"),
+
         # row class
         class_="track-recommendation mb-5"),
 
 )
 
-# SERVER
+# server
 def server(input, output, session):
 
-    # logo
+    # render NPO logo
     @render.image
     def npo_logo():
         dir = Path(__file__).resolve().parent
         logo: ImgData = {"src": str(dir / "static/NPO_logo.png"), "width": "auto", "height": "auto"}
         return logo
 
-    # REACTIVE FUNCTION: Filters Data Based on dropdown menu Selection
+    # filter data (based on dropdown menu selection)
     @reactive.Calc
     def filtered_data():
 
+        # create copy of data + save selected genres
         data = tracks_data.copy()
-        selected_genres = input.genre_filter()
 
-        # Genre cluster filter
+        # filter based on selected genre (cluster)
         selected_clusters = input.genre_cluster_filter()
         if isinstance(selected_clusters, str):
             selected_clusters = [selected_clusters]
         if selected_clusters and "All" not in selected_clusters:
             data = data[data["genre_cluster"].isin(selected_clusters)]
 
-        # Genre filter
         selected_genres = input.genre_filter()
         if isinstance(selected_genres, str):
             selected_genres = [selected_genres]
@@ -296,15 +321,15 @@ def server(input, output, session):
 
         return data
 
-    # debug function to print selected categories to console
+    # print selected categories to console
     @reactive.Effect
     def print_selected_categories():
         print(f"Selected genres: {input.genre_filter()}")
         print(f"Selected genre clusters: {input.genre_cluster_filter()}")
 
+    # render plot (for clicking ability)
     @render_widget
     def plot():
-        # Create a Plotly Express scatter plot with fixed dimensions and margins.
         scatterplot = px.scatter(
             filtered_data(),
             x="valence",
@@ -321,27 +346,35 @@ def server(input, output, session):
             margin=dict(l=50, r=50, t=50, b=50),
             clickmode="event+select"
         )
-        # Convert the figure to a FigureWidget, so we can attach Python callbacks.
+
+        # convert plot to widget
         w = go.FigureWidget(scatterplot.data, scatterplot.layout)
-        # Attach the on_click callback to capture direct clicks on markers.
+
+        # capture clicks
         w.data[0].on_click(on_point_click)
+
         return w
 
-    # React to any click (even if not on a marker) by selecting the nearest point.
+    # react to click (selects nearest point)
     @reactive.Effect
     def update_nearest_point():
         data = input.plot_click_any()
+
         if data is not None:
             df = filtered_data()
-            # Compute the Euclidean distance from the click to each point.
+
+            # compute distance from click to points
             distances = ((df["valence"] - data["x"])**2 + (df["energy"] - data["y"])**2)**0.5
+
+            # find nearest point
             nearest_idx = distances.idxmin()
             nearest_valence = df.loc[nearest_idx, "valence"]
             nearest_energy = df.loc[nearest_idx, "energy"]
             valence_selected.set(nearest_valence)
             energy_selected.set(nearest_energy)
             print(f"Nearest point selected: Valence: {nearest_valence}, Energy: {nearest_energy}")
-            # Reset track selection dropdown
+
+            # reset track selection
             session.send_input_message("track_selection", {"value": "Select a track"})
 
     # track selection
