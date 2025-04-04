@@ -9,8 +9,8 @@ from itertools import combinations
 matplotlib.use('Qt5Agg')
 
 # Load the synthetic user data
-# data = pd.read_csv("data/synthetic_user_data.csv")
-data = pd.read_csv("shiny_app/data/synthetic_user_data.csv") # manual code execution
+data = pd.read_csv("data/synthetic_user_data.csv")
+# data = pd.read_csv("shiny_app/data/synthetic_user_data.csv") # manual code execution
 
 users = data.drop_duplicates(subset=['user_id']) # create df based on data with unique user_ids
 
@@ -214,3 +214,8 @@ nrmse_range = rmse / range_val
 
 print(f"RMSE: {rmse:.4f}")
 print(f"NRMSE (range): {nrmse_range:.4f}")
+
+
+if __name__ == "__main__":
+    # Run the code
+    pass

@@ -448,7 +448,7 @@ def server(input, output, session):
         nc = filter_christmas_songs(nn)
 
         # Get similar tracks based on KNN results
-        sim = get_most_similar_tracks(nn, user_data, current_user_id, top_n=top_n)
+        sim = get_most_similar_tracks(nc, user_data, current_user_id, top_n=top_n)
         sim = sim.head(5)
 
         # check max length if top_n == 200
