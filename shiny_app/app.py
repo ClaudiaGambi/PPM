@@ -64,21 +64,93 @@ ui = ui.page_fixed(
                 color: #ffffff;
                 width: 100vw;
                 height: 100vh;
-                font-family: NPO Sans;
+                font-family: 'NPO Sans';
             }
-
+            
+            @font-face {
+                font-family: 'NPO Sans';
+                src: url('NPO_Sans_Regular.otf') format('opentype');
+                font-weight: normal;
+                font-style: normal;
+            }
+        
             .container-fluid {
                 padding: 0px;
             }
             
             /* title */
             .row.title-bar {
+                padding: 0px;
+            }
+            
+            .col-sm-6.column-title {
                 padding: 15px;
+                width: auto;
+                height: auto;
                 display: flex;
-                height: 10hv;
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            #npo_logo.shiny-image-output.shiny-bound-output {
+                width: auto !important;
+                height: auto !important;
+            }
+            
+            h1.mb-5 {
+                width: auto;
+                height: auto;
+                margin-bottom: 0px !important;
+            }
+            
+            .col-sm-8.description {
+                padding: 0px;
+            }
+            
+            h2.description-text {
+                padding: 0px;
+                margin-top: 10px;
+                margin-bottom: 15px;
+                font-size: 26px;
             }
 
             /* input select */
+            .col-sm-3.select-menu {
+                padding: 0px;
+                padding-right: 10px;
+                display: flex;
+                flex-direction: column;
+            }
+            
+            .row.row-explanation {
+                display: flex;
+                flex-direction: column;
+                padding: 10px;
+                background-color: #1F3352;
+                border-radius: 5px;
+            }
+            
+            p.text-explanation {
+                padding: 5px;
+                padding-left: 10px;
+                padding-right: 10px;
+                margin: 0px;
+            }
+            
+            .row.row-sliders {
+                margin-top: 10px;
+                display: flex;
+                flex-direction: column;
+                align-content: stretch;
+                align-items: stretch;
+                padding: 0px;
+            }
+            
+            .form-group.shiny-input-container {
+                margin-bottom: 5px; 
+                width: auto;
+            }
+      
             .form-control, .selectize-input, .shiny-input-container input[type="number"] {
                 background-color: #ffffff !important;
                 color: #000000 !important;
@@ -87,8 +159,30 @@ ui = ui.page_fixed(
                 border-radius: 5px;
                 font-size: 14px;
             }
-
+            
+            .row.row-slider-explanation {
+                font-size: 14px;
+                display: flex;
+            }
+            
+            p.slider-explanation {
+                padding-left: 10px;
+                padding-right: 10px;
+                padding-bottom: 5px;
+                padding-top: 0px;
+                margin: 0px;
+            }
+            
             /* output boxes */
+            .col-sm-4.recommendations-column {
+                padding: 0px;
+                padding-left: 10px;
+            }
+            
+            h2.your-recommendations {
+                font-size: 26px;
+            }
+            
             .shiny-output-text-verbatim, .shiny-text-output {
                 background-color: #1e1e1e !important;
                 color: #ffffff !important;
@@ -111,6 +205,10 @@ ui = ui.page_fixed(
                 background-color: #1e1e1e !important;
             }
             
+            .row.track-recommendation.mb-5 {
+                padding-bottom: 25px !important;
+            }
+            
             /* modal */
             .modal-content,
             .modal-header,
@@ -129,36 +227,56 @@ ui = ui.page_fixed(
 
     # row 1 (title)
     ui.row(
-        ui.column(6, ui.output_image("npo_logo", width="auto", height="auto")),
+        ui.column(6, ui.output_image("npo_logo", width="auto", height="auto"),
+                  ui.h1("Explore new artists", class_='mb-5'),
+                  class_= "column-title"),
         class_="title-bar"),
 
     # row 2 (description)
-    ui.row(ui.h1("Explore new artists", class_='mb-5'),
-           ui.h2("Select your favorite tracks based on energy and valence "),
-            class_ = "description"),
+    ui.row(
+        ui.column(8,
+                  ui.h2("Select your favorite tracks based on energy and valence ", class_='description-text'),
+                  class_ = "description"),
+        ui.column(4,
+                  ui.h2("Your recommendations:", class_="description-text"),
+                  class_ = "description")),
 
     # row 3 (filter + plot + recommendations)
     ui.row(
         ui.column(3,
 
                   # explanation plot
-                   ui.p('You can select certain genre clusters, specific genres, or no filter at all.\n'),
-                         ui.p("Valence: the musical positiveness conveyed by a track"),
-                         ui.p("Energy: a perceptual measure of intensity and activity"),
+                  ui.row(
+                      ui.p('You can select certain genre clusters, specific genres, or no filter at all.\n', class_='text-explanation'),
+                      ui.p("• Valence: the musical positiveness conveyed by a track", class_='text-explanation'),
+                      ui.p("• Energy: a perceptual measure of intensity and activity", class_='text-explanation'),
+                      class_= "row-explanation",
+                  ),
 
-                  # select genre group
-                  ui.input_selectize("genre_cluster_filter", "Select Genre cluster:",
+                  ui.row(
+                      # select genre group
+                      ui.input_selectize("genre_cluster_filter", "Select Genre cluster:",
                                      choices=["All"] + sorted(tracks_data["genre_cluster"].unique().tolist()),
                                      multiple=True),
 
-                  # select genre
-                  ui.input_selectize("genre_filter", "Select Genre:",
+                      # select genre
+                      ui.input_selectize("genre_filter", "Select Genre:",
                                      choices=["All"] + sorted(tracks_data["track_genre"].unique().tolist()),
                                      multiple=True),
 
-                  # slider diversity
-                  ui.input_slider("slider_diversity", "Select diversity level:",
+                      # slider diversity
+                      #ui.p('Select level of diversity:', class_='text-explanation'),
+                      ui.input_slider("slider_diversity", "Select level of diversity:",
                                   min=1, max=3, step=1, value=2),
+                      ui.row(
+                          ui.p('• Level 1: low diversity (based on listening history)', class_='slider-explanation'),
+                          ui.p('• Level 2: moderate diversity (combination)', class_='slider-explanation'),
+                          ui.p('• Level 3: high diversity (diverse)',class_='slider-explanation'),
+                          class_= "row-slider-explanation",
+                      ),
+
+
+                      class_= "row-sliders"),
 
                   # column class
                   class_="select-menu"),
@@ -200,9 +318,6 @@ ui = ui.page_fixed(
 
             ui.column(4,
 
-                      # show recommendations
-                      ui.h2("Your recommendations:"),
-
                       # output list tracks
                       ui.output_ui("recommended_tracks_plot"),
 
@@ -216,7 +331,7 @@ ui = ui.page_fixed(
     # row 4 (buddy recommendations)
     ui.row(
         ui.column(4,
-                  ui.h2("...or select a track from your buddy's playlist"),
+                  ui.h2("...or select a track from your buddy's playlist", class_='description-text'),
 
                   # HET SELECTEREN VAN USER ID NIET IN DE INTERFACE, LIVER COMMANDLINE COMMAND OF NIET
                   # ui.input_numeric("user_id", "User ID", 1, min=1, max=max(user_data["user_id"])),
@@ -249,7 +364,7 @@ ui = ui.page_fixed(
         ui.column(8,
 
                   # show buddy recommendations
-                  ui.h2("Your buddy's recommendations:"),
+                  ui.h2("Your buddy's recommendations:", class_='description-text'),
                   ui.output_ui("recommended_tracks_list_buddy"),
 
                   # column class
@@ -263,7 +378,7 @@ ui = ui.page_fixed(
         ui.column(4,
 
                   # select specific track
-                  ui.h2('...or select a track from the catalog'),
+                  ui.h2('...or select a track from the catalog', class_='description-text'),
                   ui.input_selectize("track_selection", "Search for a Track:",
                                      choices=["Select a track"] + sorted(
                                          tracks_data.fillna("").apply(lambda row: f"{row['track_name']} - {row['artists']} ({row['album_name']})",
@@ -273,12 +388,12 @@ ui = ui.page_fixed(
                                      options={"create": True} ),
 
                   # column class
-                  class_="recommendations-column"),
+                  class_="recommendations-column-2"),
 
         ui.column(8,
 
                   # show recommendations specific track
-                  ui.h2("Your recommendations based on selected track:"),
+                  ui.h2("Your recommendations based on selected track:", class_='description-text'),
                   ui.output_ui("recommended_tracks_track"),
 
                   # column class
@@ -380,18 +495,20 @@ def server(input, output, session):
     # track selection
     @reactive.Calc
     def selected_track():
+
+        # save and print selected track from input
         track_info = input.track_selection()
         print(f'Selected track: {track_info}')
 
         if not track_info or track_info == "Select a track":
-            return None  # No track selected
+            return None
 
-        # Extract track name and artist from the selection
+        # extract track & artist
         track_name, artist_album = track_info.split(" - ", 1)
         artist, album = artist_album.rsplit(" (", 1)
         album = album.rstrip(")")
 
-        # Find the track in the dataset
+        # find track in dataframe
         track_row = tracks_data[
             (tracks_data["track_name"] == track_name) &
             (tracks_data["artists"] == artist) &
@@ -402,84 +519,89 @@ def server(input, output, session):
             print(f"WARNING: Selected track '{track_info}' not found in dataset!", flush=True)
             return None
 
-        return track_row.iloc[0]  # Return the selected track as a Series
+        return track_row.iloc[0]
 
     @reactive.Effect
-    @reactive.event(input.track_selection)  # Runs only when a track is selected
+    @reactive.event(input.track_selection)
     def execute_function_on_track_selection():
+
+        # save selected track from input function
         track = selected_track()
 
         if track is None:
             print("ERROR: No valid track selected.", flush=True)
-            return  # Stop execution if no valid track is found
+            return
 
-        track_id = track["track_id"]  # Extract track_id
+        # save & print track id
+        track_id = track["track_id"]
         print(f"catalogue track selected: {track_id}", flush=True)
 
-        # Get recommendations using FAISS
+        # get recommendations using FAISS
         track_sel_rec = recommend_similar_tracks_audio_ft(
             track_id, tracks_data, tracks_faiss[0], tracks_faiss[1], audio_features, num_recommendations=5
         )
 
         recc_tracks_track.set(track_sel_rec)
 
-    # get slider value for level of diversity
+    # get diversity slider value
     @reactive.calc
     def get_diversity_level():
-        return {1: 5, 2: 20, 3: 200}[input.slider_diversity()]  # low = personalisation, high = diversity
+        return {1: 5, 2: 20, 3: 200}[input.slider_diversity()]
 
-    # REACTIVE FUNCTION: Get KNN recommendations based on valence and energy values
+    # reactive function (get KNN recommendations based on valence and energy values)
     @reactive.Effect
     def recommended_tracks():
+
         # current_user_id = user_id.get()
         current_user_id = 1
 
         # get slider input
         top_n = get_diversity_level()
 
-        # Get valence and energy values from the nearest point
+        # get valence and energy values from the nearest point
         valence = valence_selected.get()
         energy = energy_selected.get()
 
-        # Call KNN function with updated values
+        # call KNN function with updated values
         nn = knn_module(filtered_data(), valence, energy)
         
-        #apply filter function to remove christmas songs
+        # apply filter function to remove Christmas songs
         nc = filter_christmas_songs(nn)
 
-        # Get similar tracks based on KNN results
+        # get similar tracks based on KNN results & diversity level
         sim = get_most_similar_tracks(nc, user_data, current_user_id, top_n=top_n)
         sim = sim.head(5)
 
-        # check max length if top_n == 200
+        # check max length if top_n == 200 (if lower -> change max)
         if top_n == 200:
             max_tracks = len(sim)
             top_n = min(max_tracks, 200)
 
-        # Check if sim is empty before applying inverse_popularity
+        # check if sim is empty before applying inverse_popularity
         if sim.empty:
             print("WARNING: No similar tracks found. No recommendations available.", flush=True)
-            return  # Stop execution if no recommendations are found
+            return
 
-        # Apply inverse popularity filter
+        # apply inverse popularity filter
         inv_pop = inverse_popularity(sim, top_n)
 
-        # Ensure inv_pop is not empty before updating recc_tracks
+        # check if inv_pop is empty before updating recc_tracks
         if inv_pop.empty:
             print("WARNING: No recommendations after applying inverse popularity filter.", flush=True)
-            return  # Stop execution if no valid recommendations
+            return
 
-        # Update reactive value
+        # update reactive value
         recc_tracks_plot.set(inv_pop)
 
+        # print recommended tracks
         print(f"Updated recommendations using 'recommended_tracks' with {len(inv_pop)} tracks", flush=True)
 
-    # PLOT FUNCTION
+    # plot function
     @render_widget
     def plot():
         scatterplot = px.scatter(
 
-            # Call the filtered data function to only display the correct data
+            # call filtered data
             data_frame=filtered_data(),
             x="valence",
             y="energy",
@@ -490,6 +612,8 @@ def server(input, output, session):
                 filtered_data()["artists"],
                 filtered_data()["album_name"],
                 filtered_data()["track_genre"],
+
+        # hover menu
         ]).update_traces(
             marker=dict(size=8, color="#DEDEDE", opacity=0.6),
             hovertemplate="<b>Valence:</b> %{customdata[0]}<br>"
@@ -498,6 +622,8 @@ def server(input, output, session):
                           "<b>Artist:</b> %{customdata[3]}<br>"
                           "<b>Album:</b> %{customdata[4]}<br>"
                           "<b>Genre:</b> %{customdata[5]}<br>"
+
+        # plot layout
         ).update_layout(
             title={
                 "text": "Select your favorite tracks based on energy and valence to get recommendations!",
@@ -529,34 +655,12 @@ def server(input, output, session):
 
         return scatterplot
 
-    # @reactive.Effect
-    # def update_user_id():
-    #     new_user_id = input.user_id()  # Get the new value from the UI
-
-    #     # Validate input: Ensure it's a valid user ID
-    #     if new_user_id is None or not isinstance(new_user_id, (int, float)):
-    #         print("ERROR: Invalid input! User ID must be a number.", flush=True)
-    #         return  # Do not update user_id
-
-    #     if new_user_id < 1 or new_user_id > user_data["user_id"].max():
-    #         print(f"ERROR: User ID {new_user_id} is out of range!", flush=True)
-    #         return  # Do not update user_id
-
-    #     # Input is valid, update reactive value
-    #     print(f"updated user: {new_user_id}", flush=True)
-    #     user_id.set(int(new_user_id))  # Ensure it's stored as an integer
-
-    # @render.text
-    # def value():
-    #     return f"Current User ID: {input.user_id()}"
-
     @render.image
     def clickable_img():
-        # Return a dictionary with at least src and one of width/height.
-        # "src" is relative to the app directory or the provided static_dir.
+        # return dictionary with at least src and one of width/height
         dir = Path(__file__).resolve().parent
         return {
-            "src": str(dir / "static/buddy_3.png"),  # Ensure that buddy_3.png is in your app directory (or a served static folder)
+            "src": str(dir / "static/buddy_3.png"),
             "width": "200px",
             "height": "auto",
             "alt": "buddy image",
@@ -564,7 +668,7 @@ def server(input, output, session):
             "style": "cursor: pointer;"
         }
 
-    # Reactive effect: Execute the external function when the image is clicked
+    # execute the function when image is clicked
     @reactive.Effect
     @reactive.event(input.img_clicked)
     def execute_function_on_image_click():
@@ -574,6 +678,7 @@ def server(input, output, session):
         recc_tracks_buddy.set(buddy_rec)
         session.send_input_message("track_selection", {"value": "Select a track"})
 
+    # buddy consent
     @reactive.effect
     @reactive.event(input.buddy_consent)
     def buddy_modal():
@@ -587,6 +692,7 @@ def server(input, output, session):
                 )
             modal_show(m)
 
+    # recommendations buddy
     @render.ui
     def recommended_tracks_list_buddy():
         if not input.buddy_consent():
@@ -595,7 +701,7 @@ def server(input, output, session):
                 style="color: #ffffff; font-weight: bold; padding: 10px;"
             )
 
-        tracks = recc_tracks_buddy.get()  # Retrieve the DataFrame from the reactive value
+        tracks = recc_tracks_buddy.get()
 
         if tracks.empty:
             return tags.div(
@@ -605,23 +711,22 @@ def server(input, output, session):
 
         return generate_recommended_tracks_list(tracks)
 
+    # generate recommended track lists
     @render.ui
     def recommended_tracks_plot():
-        tracks = recc_tracks_plot.get()  # Retrieve the DataFrame from the reactive value
+        tracks = recc_tracks_plot.get()
         return generate_recommended_tracks_list(tracks)
 
     @render.ui
     def recommended_tracks_track():
-        tracks = recc_tracks_track.get()  # Retrieve the DataFrame from the reactive value
+        tracks = recc_tracks_track.get()
         return generate_recommended_tracks_list(tracks)
 
 # run app
 app = App(ui, server, static_assets=Path(__file__).parent/"static")
-
 
 if __name__ == "__main__":
     run_app(app)
 
 # TODO logic genre&cluster filter
 # TODO tooltip explanation app
-
