@@ -5,18 +5,16 @@ from scipy.stats import lognorm, skewnorm
 import matplotlib.pyplot as plt
 import matplotlib
 import seaborn as sns
-
-#matplotlib.use('Qt5Agg')
-
 import os
-print(os.getcwd())
-os.chdir(r'C:\Documenten\ADS\PPM\Assignment2\Git\PPM\shiny_app\data')
-
-np.random.seed(42)
 
 
-print(user_data1.columns)
-print(final_df.columns)
+# Get the current working directory
+current_dir = os.getcwd()
+#Make sure you are in the shiny_app/data folder
+
+# Path to the CSV file in the 'shiny_app/data' folder
+file_path = os.path.join(current_dir, 'spotify_track.csv')
+tracks = pd.read_csv(file_path)
 
 
 # Define genre clusters
@@ -84,12 +82,12 @@ for i in range(num_users):
 
     buddy_consent = np.random.choice([0, 1], p=[0.25, 0.75])
     users.append([i + 1, persona["name"], age, gender, location, preferred_genre_cluster, 
-                  preferred_genre, listen_freq, avg_hours_per_week, num_tracks, buddy_consent])
+                  preferred_genre, listen_freq, avg_hours_per_week, buddy_consent])
 
 # Maak DataFrame met gebruikersdata
 users_df = pd.DataFrame(users, columns=['user_id', 'persona', 'age', 'gender', 'location', 
                                         'preferred_genre_cluster', 'preferred_genre', 'listen_freq', 
-                                        'avg_hours_per_week', 'num_tracks', 'buddy_consent'])
+                                        'avg_hours_per_week', 'buddy_consent'])
 
 #definieer popularity weight
 tracks['popularity_weight'] = tracks['popularity'] / 100
