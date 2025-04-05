@@ -81,17 +81,17 @@ def knn_module(data, valence=0.5, energy=0.5, max_knn=500):
 
 def filter_christmas_songs(tracks_df):
     christmas_keywords = ["christmas", "santa", "saint", "frosty", "snowman"]
-    
+
     # Zet alles om naar kleine letters voor case-insensitive filtering
     mask = tracks_df["track_name"].str.lower().str.contains('|'.join(christmas_keywords), na=False) | \
            tracks_df["album_name"].str.lower().str.contains('|'.join(christmas_keywords), na=False)
 
     # Houd alleen niet-kerstliedjes over
     filtered_df = tracks_df[~mask]
-    
+
     # Reset de index en verwijder de oude indexkolom
     filtered_df = filtered_df.reset_index(drop=True)
-    
+
     return filtered_df
 
 def get_most_similar_tracks(df_track, df_users, user_id, top_n=200):
@@ -234,6 +234,8 @@ def buddy_recommendations(user_id, df, num_recommendations=5):
         union = len(user_tracks | other_tracks)
         if union > 0:
             similarity = intersection / union
+
+            # Select broad range for similarity buddy system for proto type (since there are no real users)
             if 0.0 <= similarity <= 0.6:
                 user_similarity[other_user] = similarity
 
@@ -418,5 +420,3 @@ def on_point_click(trace, points, state):
         energy = trace.y[idx]
         valence_selected.set(valence)
         energy_selected.set(energy)
-
-

@@ -70,7 +70,7 @@ ui = ui.page_fixed(
             .container-fluid {
                 padding: 0px;
             }
-            
+
             /* title */
             .row.title-bar {
                 padding: 15px;
@@ -110,7 +110,7 @@ ui = ui.page_fixed(
             .widget-output, .plotly {
                 background-color: #1e1e1e !important;
             }
-            
+
             /* modal */
             .modal-content,
             .modal-header,
@@ -119,7 +119,7 @@ ui = ui.page_fixed(
                 background-color: #1e3352 !important;
                 color: #ffffff !important;
             }
-            
+
             .modal-btn-default {
                 background-color: #333333;
                 color: white;
@@ -181,7 +181,7 @@ ui = ui.page_fixed(
                             var total_height = 570;
                             var inner_width = total_width - 50 - 50;  // left and right margins
                             var inner_height = total_height - 50 - 50; // top and bottom margins
-    
+
                             // Convert the click's offset position (relative to the plot element)
                             // into data coordinates assuming a linear mapping.
                             var dataX = {x_min} + ((event.offsetX - left_margin) / inner_width) * ({x_max} - {x_min});
@@ -443,7 +443,7 @@ def server(input, output, session):
 
         # Call KNN function with updated values
         nn = knn_module(filtered_data(), valence, energy)
-        
+
         #apply filter function to remove christmas songs
         nc = filter_christmas_songs(nn)
 
@@ -579,7 +579,11 @@ def server(input, output, session):
     def buddy_modal():
         if input.buddy_consent():
             m = modal(
-                "By providing buddy consent you are aware that this potentially decreases your privacy, as you might be identified via your buddy's internal/external data outside your control",
+                "The Buddy is selected based on matching your listening history to some other users listening history." \
+                " When you have around half of your listening histories match, you get assigned to your Buddy anonymously."
+                " The recommendations will then only display the tracks of your Buddy that you have not listened too yet!" \
+                " By providing Buddy consent you agree to sharing your listening history anonymously with your assigned Buddy." \
+                " This potentially decreases your privacy.",
                 title="Buddy consent",
                 easy_close=True,
                 fade=False,
@@ -624,4 +628,3 @@ if __name__ == "__main__":
 
 # TODO logic genre&cluster filter
 # TODO tooltip explanation app
-
