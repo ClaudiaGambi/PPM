@@ -64,17 +64,17 @@ def knn_module(data, valence=0.5, energy=0.5, max_knn=500):
 # function to remove Christmas songs
 def filter_christmas_songs(tracks_df):
     christmas_keywords = ["christmas", "santa", "saint", "frosty", "snowman"]
-    
+
     # change to lowercase
     mask = tracks_df["track_name"].str.lower().str.contains('|'.join(christmas_keywords), na=False) | \
            tracks_df["album_name"].str.lower().str.contains('|'.join(christmas_keywords), na=False)
 
     # remove Christmas songs
     filtered_df = tracks_df[~mask]
-    
+
     # reset index
     filtered_df = filtered_df.reset_index(drop=True)
-    
+
     return filtered_df
 
 # function to get most similar tracks based on listening history
@@ -186,6 +186,8 @@ def buddy_recommendations(user_id, df, num_recommendations=5):
         union = len(user_tracks | other_tracks)
         if union > 0:
             similarity = intersection / union
+
+            # Select broad range for similarity buddy system for proto type (since there are no real users)
             if 0.0 <= similarity <= 0.6:
                 user_similarity[other_user] = similarity
 

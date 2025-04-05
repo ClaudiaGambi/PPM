@@ -66,23 +66,23 @@ ui = ui.page_fixed(
                 height: 100vh;
                 font-family: 'NPO Sans';
             }
-            
+
             @font-face {
                 font-family: 'NPO Sans';
                 src: url('NPO_Sans_Regular.otf') format('opentype');
                 font-weight: normal;
                 font-style: normal;
             }
-        
+
             .container-fluid {
                 padding: 0px;
             }
-            
+
             /* title */
             .row.title-bar {
                 padding: 0px;
             }
-            
+
             .col-sm-6.column-title {
                 padding: 15px;
                 width: auto;
@@ -91,22 +91,22 @@ ui = ui.page_fixed(
                 flex-direction: column;
                 align-items: center;
             }
-            
+
             #npo_logo.shiny-image-output.shiny-bound-output {
                 width: auto !important;
                 height: auto !important;
             }
-            
+
             h1.mb-5 {
                 width: auto;
                 height: auto;
                 margin-bottom: 0px !important;
             }
-            
+
             .col-sm-8.description {
                 padding: 0px;
             }
-            
+
             h2.description-text {
                 padding: 0px;
                 margin-top: 10px;
@@ -121,7 +121,7 @@ ui = ui.page_fixed(
                 display: flex;
                 flex-direction: column;
             }
-            
+
             .row.row-explanation {
                 display: flex;
                 flex-direction: column;
@@ -129,14 +129,14 @@ ui = ui.page_fixed(
                 background-color: #1F3352;
                 border-radius: 5px;
             }
-            
+
             p.text-explanation {
                 padding: 5px;
                 padding-left: 10px;
                 padding-right: 10px;
                 margin: 0px;
             }
-            
+
             .row.row-sliders {
                 margin-top: 10px;
                 display: flex;
@@ -145,12 +145,12 @@ ui = ui.page_fixed(
                 align-items: stretch;
                 padding: 0px;
             }
-            
+
             .form-group.shiny-input-container {
-                margin-bottom: 5px; 
+                margin-bottom: 5px;
                 width: auto;
             }
-      
+
             .form-control, .selectize-input, .shiny-input-container input[type="number"] {
                 background-color: #ffffff !important;
                 color: #000000 !important;
@@ -159,12 +159,12 @@ ui = ui.page_fixed(
                 border-radius: 5px;
                 font-size: 14px;
             }
-            
+
             .row.row-slider-explanation {
                 font-size: 14px;
                 display: flex;
             }
-            
+
             p.slider-explanation {
                 padding-left: 10px;
                 padding-right: 10px;
@@ -172,17 +172,17 @@ ui = ui.page_fixed(
                 padding-top: 0px;
                 margin: 0px;
             }
-            
+
             /* output boxes */
             .col-sm-4.recommendations-column {
                 padding: 0px;
                 padding-left: 10px;
             }
-            
+
             h2.your-recommendations {
                 font-size: 26px;
             }
-            
+
             .shiny-output-text-verbatim, .shiny-text-output {
                 background-color: #1e1e1e !important;
                 color: #ffffff !important;
@@ -204,11 +204,11 @@ ui = ui.page_fixed(
             .widget-output, .plotly {
                 background-color: #1e1e1e !important;
             }
-            
+
             .row.track-recommendation.mb-5 {
                 padding-bottom: 25px !important;
             }
-            
+
             /* modal */
             .modal-content,
             .modal-header,
@@ -217,7 +217,7 @@ ui = ui.page_fixed(
                 background-color: #1e3352 !important;
                 color: #ffffff !important;
             }
-            
+
             .modal-btn-default {
                 background-color: #333333;
                 color: white;
@@ -299,7 +299,7 @@ ui = ui.page_fixed(
                             var total_height = 570;
                             var inner_width = total_width - 50 - 50;  // left and right margins
                             var inner_height = total_height - 50 - 50; // top and bottom margins
-    
+
                             // Convert the click's offset position (relative to the plot element)
                             // into data coordinates assuming a linear mapping.
                             var dataX = {x_min} + ((event.offsetX - left_margin) / inner_width) * ({x_max} - {x_min});
@@ -564,7 +564,7 @@ def server(input, output, session):
 
         # call KNN function with updated values
         nn = knn_module(filtered_data(), valence, energy)
-        
+
         # apply filter function to remove Christmas songs
         nc = filter_christmas_songs(nn)
 
@@ -684,7 +684,11 @@ def server(input, output, session):
     def buddy_modal():
         if input.buddy_consent():
             m = modal(
-                "By providing buddy consent you are aware that this potentially decreases your privacy, as you might be identified via your buddy's internal/external data outside your control",
+                "The Buddy is selected based on matching your listening history to some other users listening history." \
+                " When you have around half of your listening histories match, you get assigned to your Buddy anonymously." \
+                " The recommendations will then only display the tracks of your Buddy that you have not listened too yet!" \
+                " By providing Buddy consent you agree to sharing your listening history anonymously with your assigned Buddy." \
+                " This potentially decreases your privacy.",
                 title="Buddy consent",
                 easy_close=True,
                 fade=False,
@@ -730,4 +734,3 @@ if __name__ == "__main__":
 
 # TODO logic genre&cluster filter
 # TODO tooltip explanation app
-
