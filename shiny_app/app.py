@@ -580,7 +580,7 @@ def server(input, output, session):
         if input.buddy_consent():
             m = modal(
                 "The Buddy is selected based on matching your listening history to some other users listening history." \
-                " When you have around half of your listening histories match, you get assigned to your Buddy anonymously."
+                " When you have around half of your listening histories match, you get assigned to your Buddy anonymously." \
                 " The recommendations will then only display the tracks of your Buddy that you have not listened too yet!" \
                 " By providing Buddy consent you agree to sharing your listening history anonymously with your assigned Buddy." \
                 " This potentially decreases your privacy.",
